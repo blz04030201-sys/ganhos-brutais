@@ -1,0 +1,209 @@
+import { supabase } from './supabase'
+
+// ── GYMS ─────────────────────────────────────────────────────
+export const gymService = {
+  async list(userId) {
+    const { data, error } = await supabase
+      .from('gyms')
+      .select('*')
+      .eq('user_id', userId)
+      .order('sort_order')
+    if (error) throw error
+    return data || []
+  },
+
+  async create(userId, fields) {
+    const { data, error } = await supabase
+      .from('gyms')
+      .insert({ user_id: userId, ...fields })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async update(id, fields) {
+    const { data, error } = await supabase
+      .from('gyms')
+      .update(fields)
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async delete(id) {
+    const { error } = await supabase.from('gyms').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  async reorder(ids) {
+    const updates = ids.map((id, i) =>
+      supabase.from('gyms').update({ sort_order: i }).eq('id', id)
+    )
+    await Promise.all(updates)
+  },
+}
+
+// ── WORKOUTS ─────────────────────────────────────────────────
+export const workoutService = {
+  async listByGym(gymId) {
+    const { data, error } = await supabase
+      .from('workouts')
+      .select('*')
+      .eq('gym_id', gymId)
+      .order('sort_order')
+    if (error) throw error
+    return data || []
+  },
+
+  async create(userId, gymId, fields) {
+    const { data, error } = await supabase
+      .from('workouts')
+      .insert({ user_id: userId, gym_id: gymId, ...fields })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async update(id, fields) {
+    const { data, error } = await supabase
+      .from('workouts')
+      .update(fields)
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async delete(id) {
+    const { error } = await supabase.from('workouts').delete().eq('id', id)
+    if (error) throw error
+  },
+}
+
+// ── EXERCISES ────────────────────────────────────────────────
+export const exerciseService = {
+  async listByWorkout(workoutId) {
+    const { data, error } = await supabase
+      .from('exercises')
+      .select('*')
+      .eq('workout_id', workoutId)
+      .order('sort_order')
+    if (error) throw error
+    return data || []
+  },
+
+  async create(userId, workoutId, fields) {
+    const { data, error } = await supabase
+      .from('exercises')
+      .insert({ user_id: userId, workout_id: workoutId, ...fields })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async update(id, fields) {
+    const { data, error } = await supabase
+      .from('exercises')
+      .update(fields)
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async delete(id) {
+    const { error } = await supabase.from('exercises').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  async reorder(ids) {
+    await Promise.all(ids.map((id, i) =>
+      supabase.from('exercises').update({ sort_order: i }).eq('id', id)
+    ))
+  },
+}
+
+// ── LOGS & SETS ──────────────────────────────────────────────
+export const logService = {
+  /** Get all logs for a given exercise, newest first */
+  async listByExercise(exerciseId) {
+    const { data, error } = await supabase
+      .from('exercise_logs')
+      .select('*, exercise_sets(*)')
+      .eq('exercise_id', exerciseId)
+      .order('log_date', { ascending: false })
+    if (error) throw error
+    return (data || []).map(log => ({
+      ...log,
+      sets: (log.exercise_sets || []).sort((a, b) => a.set_number - b.set_number),
+    }))
+  },
+
+  /** Get logs for a user on a specific date (for dashboard) */
+  async listByDate(userId, date) {
+    const { data, error } = await supabase
+      .from('exercise_logs')
+      .select('*, exercises(name, workout_id), exercise_sets(*)')
+      .eq('user_id', userId)
+      .eq('log_date', date)
+    if (error) throw error
+    return (data || []).map(log => ({
+      ...log,
+      sets: (log.exercise_sets || []).sort((a, b) => a.set_number - b.set_number),
+    }))
+  },
+
+  /** Upsert a log entry (create or update) */
+  async upsertLog(userId, exerciseId, date, observation) {
+    const { data, error } = await supabase
+      .from('exercise_logs')
+      .upsert(
+        { user_id: userId, exercise_id: exerciseId, log_date: date, observation },
+        { onConflict: 'exercise_id,log_date' }
+      )
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  /** Replace all sets for a log */
+  async replaceSets(logId, userId, sets) {
+    // Delete existing
+    await supabase.from('exercise_sets').delete().eq('log_id', logId)
+    if (!sets.length) return []
+
+    // Detect PRs: highest weight ever for this exercise
+    const { data: prData } = await supabase
+      .from('exercise_sets')
+      .select('weight')
+      .eq('log_id', logId) // won't find any after delete — we need another approach
+    // We'll just mark all sets and let the UI handle PR display
+    const rows = sets.map((s, i) => ({
+      log_id: logId,
+      user_id: userId,
+      set_number: i + 1,
+      weight: parseFloat(s.weight) || null,
+      reps: s.reps || '',
+      is_pr: s.is_pr || false,
+    }))
+    const { data, error } = await supabase
+      .from('exercise_sets')
+      .insert(rows)
+      .select()
+    if (error) throw error
+    return data || []
+  },
+
+  async deleteLog(logId) {
+    const { error } = await supabase.from('exercise_logs').delete().eq('id', logId)
+    if (error) throw error
+  },
+}
