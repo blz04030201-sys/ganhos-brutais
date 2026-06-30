@@ -96,6 +96,7 @@ create table if not exists gyms (
   user_id     uuid not null references profiles(id) on delete cascade,
   name        text not null,
   icon        text default '🏋️',
+  color       text default '#3B82F6',
   sort_order  integer default 0,
   created_at  timestamptz default now()
 );

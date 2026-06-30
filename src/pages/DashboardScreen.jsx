@@ -262,6 +262,7 @@ export default function DashboardScreen({ setTab }) {
 // ── WORKOUT CARD ──────────────────────────────────────────────
 function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGym, workouts, onSelectWorkout, onStart, setTab }) {
   const muscleGroups = wk?.display_name?.split(/[+·,]/).map(s => s.trim()).filter(Boolean) || []
+  const [switching, setSwitching] = useState(false)
 
   return (
     <div style={{
@@ -284,10 +285,48 @@ function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGy
 
       <div style={{ position:'relative', padding:'16px' }}>
         {/* Label */}
-        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
-          <div style={{ width:28, height:28, borderRadius:8, background:'rgba(59,130,246,0.2)', border:'1px solid rgba(59,130,246,0.3)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14 }}>🏋️</div>
-          <span style={{ fontSize:10, fontWeight:800, color:'#60A5FA', textTransform:'uppercase', letterSpacing:'0.12em' }}>Treino de Hoje</span>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <div style={{ width:28, height:28, borderRadius:8, background:'rgba(59,130,246,0.2)', border:'1px solid rgba(59,130,246,0.3)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14 }}>🏋️</div>
+            <span style={{ fontSize:10, fontWeight:800, color:'#60A5FA', textTransform:'uppercase', letterSpacing:'0.12em' }}>Treino de Hoje</span>
+          </div>
+          {wk && (
+            <button onClick={() => setSwitching(s => !s)}
+              style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.6)', background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:99, padding:'4px 10px', cursor:'pointer' }}>
+              {switching ? 'Fechar ✕' : 'Trocar ▾'}
+            </button>
+          )}
         </div>
+
+        {switching && (
+          <div style={{ marginBottom:14, padding:'10px', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:'var(--r)' }}>
+            <p style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.45)', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:7 }}>Academia</p>
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:12 }}>
+              {gyms.map(g => (
+                <button key={g.id} onClick={() => onSelectGym(g)}
+                  style={{ padding:'7px 12px', borderRadius:99, fontSize:12, fontWeight:700, cursor:'pointer',
+                    background: gym?.id===g.id ? `${g.color||'#3B82F6'}33` : 'rgba(255,255,255,0.06)',
+                    border:`1px solid ${gym?.id===g.id ? (g.color||'#3B82F6') : 'rgba(255,255,255,0.12)'}`,
+                    color: gym?.id===g.id ? '#fff' : 'rgba(255,255,255,0.65)' }}>
+                  {g.icon} {g.name}
+                </button>
+              ))}
+            </div>
+            <p style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.45)', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:7 }}>Treino</p>
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+              {workouts.map(w => (
+                <button key={w.id} onClick={() => { onSelectWorkout(w); setSwitching(false) }}
+                  style={{ padding:'7px 12px', borderRadius:99, fontSize:12, fontWeight:700, cursor:'pointer',
+                    background: wk?.id===w.id ? `${w.color||'#3B82F6'}33` : 'rgba(255,255,255,0.06)',
+                    border:`1px solid ${wk?.id===w.id ? (w.color||'#3B82F6') : 'rgba(255,255,255,0.12)'}`,
+                    color: wk?.id===w.id ? '#fff' : 'rgba(255,255,255,0.65)' }}>
+                  {w.name}
+                </button>
+              ))}
+              {workouts.length===0 && <span style={{ fontSize:12, color:'rgba(255,255,255,0.4)' }}>Sem treinos nesta academia ainda.</span>}
+            </div>
+          </div>
+        )}
 
         {wk ? (
           <>
@@ -583,13 +622,14 @@ function GymSection({ gyms, selected, onSelect, setTab }) {
             style={{
               flexShrink:0, padding:'11px 16px',
               borderRadius:'var(--r)',
-              background: selected?.id===g.id ? 'var(--accent10)' : 'var(--card)',
-              border:`1.5px solid ${selected?.id===g.id ? 'var(--accent)' : 'var(--b1)'}`,
+              background: selected?.id===g.id ? `${(g.color||'var(--accent)')}1f` : 'var(--card)',
+              border:`1.5px solid ${selected?.id===g.id ? (g.color||'var(--accent)') : 'var(--b1)'}`,
+              borderLeft:`4px solid ${g.color||'var(--accent)'}`,
               display:'flex', alignItems:'center', gap:8, cursor:'pointer',
             }}>
             <span style={{ fontSize:18 }}>{g.icon}</span>
-            <span style={{ fontSize:12, fontWeight:700, color: selected?.id===g.id ? 'var(--accent)' : 'var(--t1)', whiteSpace:'nowrap' }}>{g.name}</span>
-            <span style={{ fontSize:12, color:'var(--accent)' }}>›</span>
+            <span style={{ fontSize:12, fontWeight:700, color: selected?.id===g.id ? (g.color||'var(--accent)') : 'var(--t1)', whiteSpace:'nowrap' }}>{g.name}</span>
+            <span style={{ fontSize:12, color:g.color||'var(--accent)' }}>›</span>
           </button>
         ))}
         <button onClick={() => setTab('workouts')}

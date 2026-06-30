@@ -38,11 +38,19 @@
   --shadow-accent: 0 8px 32px color-mix(in srgb, var(--accent) 30%, transparent);
 
   --nav-h: 64px;
-  /* Safe area – dynamically overridden via JS when keyboard appears */
+  /* Safe area – dynamically overridden via JS when keyboard appears.
+     Android frequently reports 0 for safe-area-inset-bottom even with a
+     gesture nav bar, so bottom-anchored UI (nav, modal footers, toast)
+     should use max(var(--safe-bottom), var(--safe-bottom-min)) instead of
+     the raw value, to guarantee a small buffer either way. */
   --safe-top:    env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-bottom-min: 10px;
   --safe-left:   env(safe-area-inset-left, 0px);
   --safe-right:  env(safe-area-inset-right, 0px);
+  /* Visual-viewport height in px, kept in sync by useKeyboardSafeArea() in
+     App.jsx. The dvh fallback covers the brief moment before that JS runs. */
+  --vvh: 100dvh;
 }
 
 /* ── RESET ─────────────────────────────────────────────────── */
@@ -109,7 +117,7 @@ a { color: inherit; text-decoration: none; }
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
-  padding-bottom: calc(var(--nav-h) + var(--safe-bottom) + 16px);
+  padding-bottom: calc(var(--nav-h) + max(var(--safe-bottom), var(--safe-bottom-min)) + 16px);
 }
 
 /* ── SAFE AREA HEADER ──────────────────────────────────────── */
@@ -133,8 +141,8 @@ a { color: inherit; text-decoration: none; }
 /* ── BOTTOM NAV ─────────────────────────────────────────────── */
 .bottom-nav {
   display: flex;
-  height: calc(var(--nav-h) + var(--safe-bottom));
-  padding-bottom: var(--safe-bottom);
+  height: calc(var(--nav-h) + max(var(--safe-bottom), var(--safe-bottom-min)));
+  padding-bottom: max(var(--safe-bottom), var(--safe-bottom-min));
   background: var(--bg2);
   border-top: 1px solid var(--b1);
   flex-shrink: 0;
@@ -276,7 +284,7 @@ a { color: inherit; text-decoration: none; }
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: 0 calc(var(--safe-left)) calc(var(--safe-bottom)) calc(var(--safe-right));
+  padding: 0 calc(var(--safe-left)) max(var(--safe-bottom), var(--safe-bottom-min)) calc(var(--safe-right));
   animation: fadeIn 0.15s ease;
 }
 
@@ -327,7 +335,7 @@ a { color: inherit; text-decoration: none; }
   flex-shrink: 0;
   display: flex;
   gap: 10px;
-  padding: 14px 20px calc(14px + var(--safe-bottom));
+  padding: 14px 20px calc(14px + max(var(--safe-bottom), var(--safe-bottom-min)));
   border-top: 1px solid var(--b1);
   background: var(--bg2);
 }
@@ -343,7 +351,7 @@ a { color: inherit; text-decoration: none; }
 /* ── TOAST ───────────────────────────────────────────────────── */
 .toast {
   position: fixed;
-  bottom: calc(var(--nav-h) + var(--safe-bottom) + 14px);
+  bottom: calc(var(--nav-h) + max(var(--safe-bottom), var(--safe-bottom-min)) + 14px);
   left: 50%;
   transform: translateX(-50%);
   background: var(--bg2);

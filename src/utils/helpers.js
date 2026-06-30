@@ -24,6 +24,12 @@ export const dateLabel = iso => {
 
 export const DAYS = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo']
 export const WORKOUT_COLORS = ['#3B82F6','#60A5FA','#818CF8','#38BDF8','#2DD4BF','#34D399','#A78BFA','#F472B6','#FB923C','#F87171']
+export const GYM_COLORS = [
+  '#3B82F6','#2563EB','#60A5FA','#38BDF8','#0EA5E9','#06B6D4','#2DD4BF','#14B8A6',
+  '#34D399','#10B981','#84CC16','#A3E635','#FACC15','#F59E0B','#FB923C','#F97316',
+  '#F87171','#EF4444','#FB7185','#F472B6','#EC4899','#D946EF','#C084FC','#A78BFA',
+  '#818CF8','#6366F1','#94A3B8','#FFFFFF',
+]
 export const GYM_ICONS = ['🏋️','💪','🏃','⚡','🔥','🥊','🏠','✈️','🎯','🏆','⚽','🧘']
 export const MEAL_ICONS = ['☀️','🍽️','☕','🌙','🥗','🍎','🌮','🥛','🍵','🥜','🔥','⚡','🫙','🥣','🍳']
 

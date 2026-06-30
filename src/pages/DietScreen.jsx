@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useApp } from '../hooks/useAppContext'
 import { mealPlanService, mealService, mealItemService, dietGoalsService, foodService, presetService } from '../services/diet'
 import { profileService } from '../services/profile'
-import { searchFoods, calcMacros, findFood, getFoodUnits, MEAL_PRESETS } from '../utils/foodsDb'
+import { searchFoods, calcMacros, findFood, getFoodUnits, MEAL_PRESETS, recalcItems } from '../utils/foodsDb'
 import { sumMacros, MEAL_ICONS, smartGoals } from '../utils/helpers'
 import { Modal, FormSheet, Confirm, Loader, Empty, SectionHeader } from '../components/UI'
 import { useDragSort } from '../hooks/useDragSort'
@@ -31,14 +31,19 @@ export default function DietScreen() {
       ])
       setGoals(g)
       setCustomFoods(cf)
-      if (p) { setPlan(p); setMeals(await mealService.listByPlan(p.id)) }
+      if (p) { setPlan(p); setMeals(await loadMeals(p.id, cf)) }
       else   { const np = await mealPlanService.create(userId); setPlan(np); setMeals([]) }
     } finally { setLoading(false) }
   }
 
+  const loadMeals = async (planId, cf) => {
+    const ms = await mealService.listByPlan(planId)
+    return ms.map(m => ({ ...m, items: recalcItems(m.items || [], cf) }))
+  }
+
   const reloadCustomFoods = async () => setCustomFoods(await foodService.listCustom(userId))
 
-  const reloadMeals = async () => setMeals(await mealService.listByPlan(plan.id))
+  const reloadMeals = async () => setMeals(await loadMeals(plan.id, customFoods))
 
   const { dragIndex, getHandleProps, getItemProps } = useDragSort(meals, async (next) => {
     setMeals(next)
@@ -228,27 +233,51 @@ function MealCard({ meal, onEdit, onDelete, handleProps, dragging }) {
       </div>
 
       {open && (
-        <div style={{ borderTop:'1px solid var(--b1)' }}>
+        <div style={{ borderTop:'1px solid var(--b1)', background:'var(--bg3)', padding:'10px 12px', display:'flex', flexDirection:'column', gap:8 }}>
           {items.length === 0
-            ? <p style={{ padding:'10px 14px', color:'var(--t3)', fontSize:12 }}>Nenhum alimento</p>
-            : groupItemsBySubName(items).map((group, gi) => (
-                <div key={gi}>
-                  {group.subName && (
-                    <div style={{ display:'flex', alignItems:'center', gap:5, padding:'7px 14px 3px', background:'var(--bg3)' }}>
-                      <span style={{ fontSize:12 }}>{group.subIcon || '🍱'}</span>
-                      <span style={{ fontSize:11, fontWeight:700, color:'var(--accent)' }}>{group.subName}</span>
+            ? <p style={{ padding:'4px 2px', color:'var(--t3)', fontSize:12 }}>Nenhum alimento</p>
+            : groupItemsBySubName(items).map((group, gi) => {
+                const groupTotals = sumMacros(group.entries.map(e => e.item))
+                // Grouped (a saved "opção"/preset) → its own nested card, clearly a
+                // child of this meal. Ungrouped → a plain bullet list, direct children.
+                if (!group.subName) {
+                  return (
+                    <div key={gi} style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                      {group.entries.map(({ item }) => (
+                        <div key={item.id} style={{ display:'flex', justifyContent:'space-between', gap:8, fontSize:12.5 }}>
+                          <span style={{ color:'var(--t1)' }}>• {item.food_name} <span style={{ color:'var(--t3)' }}>— {item.amount}{item.unit}</span></span>
+                          <span style={{ color:'var(--t3)', flexShrink:0 }}>{Math.round(item.calories||0)} kcal</span>
+                        </div>
+                      ))}
                     </div>
-                  )}
-                  {group.entries.map(({ item }) => (
-                    <div key={item.id} style={{ padding: group.subName ? '6px 14px 6px 26px' : '7px 14px', display:'flex', justifyContent:'space-between', fontSize:12, borderBottom:'1px solid var(--b2)' }}>
-                      <span style={{ color:'var(--t2)' }}>{group.subName ? '• ' : ''}{item.food_name} — {item.amount}{item.unit}</span>
-                      <span style={{ color:'var(--t3)', flexShrink:0, marginLeft:8 }}>{Math.round(item.calories||0)} kcal</span>
+                  )
+                }
+                return (
+                  <div key={gi} style={{ background:'var(--card)', border:'1px solid var(--b1)', borderLeft:'3px solid var(--accent)', borderRadius:'var(--rsm)', padding:'9px 11px', display:'flex', flexDirection:'column', gap:6 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                      <span style={{ fontSize:14 }}>{group.subIcon || '🍱'}</span>
+                      <span style={{ fontSize:12.5, fontWeight:700, color:'var(--accent)' }}>{group.subName}</span>
+                      <span style={{ fontSize:10, color:'var(--t3)', marginLeft:'auto' }}>opção</span>
                     </div>
-                  ))}
-                </div>
-              ))
+                    <div style={{ paddingLeft:14, borderLeft:'2px dashed var(--b2)', display:'flex', flexDirection:'column', gap:5 }}>
+                      {group.entries.map(({ item }) => (
+                        <div key={item.id} style={{ display:'flex', justifyContent:'space-between', gap:8, fontSize:12 }}>
+                          <span style={{ color:'var(--t2)' }}>• {item.food_name} <span style={{ color:'var(--t3)' }}>— {item.amount}{item.unit}</span></span>
+                          <span style={{ color:'var(--t3)', flexShrink:0 }}>{Math.round(item.calories||0)} kcal</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display:'flex', gap:10, fontSize:10.5, color:'var(--t3)', paddingTop:5, borderTop:'1px solid var(--b2)' }}>
+                      <span>🔥 <b style={{ color:'var(--t1)' }}>{Math.round(groupTotals.cal)}</b> kcal</span>
+                      <span>P:<b style={{ color:'var(--t1)' }}>{Math.round(groupTotals.prot)}g</b></span>
+                      <span>C:<b style={{ color:'var(--t1)' }}>{Math.round(groupTotals.carb)}g</b></span>
+                      <span>G:<b style={{ color:'var(--t1)' }}>{Math.round(groupTotals.fat)}g</b></span>
+                    </div>
+                  </div>
+                )
+              })
           }
-          <div style={{ display:'flex', borderTop:'1px solid var(--b1)' }}>
+          <div style={{ display:'flex', margin:'4px -12px -10px', borderTop:'1px solid var(--b1)' }}>
             <button onClick={() => setDel(true)} style={{ flex:1, padding:'9px', fontSize:12, color:'var(--red)', background:'none', border:'none', borderRight:'1px solid var(--b1)', cursor:'pointer' }}>🗑️ Excluir</button>
             <button onClick={onEdit} style={{ flex:1, padding:'9px', fontSize:12, fontWeight:700, color:'var(--accent)', background:'var(--accent10)', border:'none', cursor:'pointer' }}>✏️ Editar</button>
           </div>
@@ -266,7 +295,7 @@ function MealEditor({ meal, plan, userId, customFoods, onFoodCreated, onSave, on
   const { toast } = useApp()
   const [name,     setName]     = useState(meal?.name || '')
   const [icon,     setIcon]     = useState(meal?.icon || '🍽️')
-  const [items,    setItems]    = useState(meal?.items || [])
+  const [items,    setItems]    = useState(() => recalcItems(meal?.items || [], customFoods))
   const [saving,   setSaving]   = useState(false)
   const [addFood,  setAddFood]  = useState(false)
   const [presets,  setPresets]  = useState(false)
@@ -358,7 +387,7 @@ function MealEditor({ meal, plan, userId, customFoods, onFoodCreated, onSave, on
           </button>
           <button onClick={() => setPresets(true)}
             style={{ padding:'12px', border:'1.5px dashed var(--accent)', borderRadius:'var(--r)', color:'var(--accent)', fontSize:13, fontWeight:600, background:'var(--accent10)', cursor:'pointer' }}>
-            ⚡ Adicionar preset
+            🔁 Adicionar opção/substituição
           </button>
         </div>
       </div>
@@ -591,12 +620,12 @@ function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse }) {
 
   const duplicate = async (p, e) => {
     e.stopPropagation()
-    try { const d = await presetService.duplicate(userId, p); setPresets(prev => [...prev, d]); toast('Preset duplicado!') }
+    try { const d = await presetService.duplicate(userId, p); setPresets(prev => [...prev, d]); toast('Opção duplicada!') }
     catch(err) { toast('Erro: '+err.message) }
   }
 
   const remove = async () => {
-    try { await presetService.delete(del.id); setPresets(p => p.filter(x=>x.id!==del.id)); toast('Preset removido.') }
+    try { await presetService.delete(del.id); setPresets(p => p.filter(x=>x.id!==del.id)); toast('Opção removida.') }
     finally { setDel(null) }
   }
 
@@ -618,10 +647,10 @@ function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse }) {
   }
 
   return (
-    <Modal title="Presets de Refeição" onClose={onClose}>
+    <Modal title="Opções desta Refeição" onClose={onClose}>
       <button onClick={() => setEditing('new')}
         style={{ width:'100%', padding:'12px', marginBottom:14, border:'1.5px dashed var(--accent)', borderRadius:'var(--r)', color:'var(--accent)', fontSize:13, fontWeight:700, background:'var(--accent10)', cursor:'pointer' }}>
-        + Criar novo preset
+        + Criar nova opção
       </button>
 
       {loading ? <Loader /> : (
@@ -652,7 +681,7 @@ function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse }) {
 
           {presets.length === 0 && !loading && (
             <p style={{ fontSize:12, color:'var(--t3)', marginBottom:14 }}>
-              Você ainda não tem presets. Crie o seu, ou comece rápido com uma das sugestões abaixo:
+              Você ainda não tem opções cadastradas para suas refeições. Crie a sua, ou comece rápido com uma sugestão abaixo:
             </p>
           )}
 
@@ -671,7 +700,7 @@ function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse }) {
         </>
       )}
 
-      {del && <Confirm message={`Excluir o preset "${del.name}"?`} onConfirm={remove} onCancel={() => setDel(null)} />}
+      {del && <Confirm message={`Excluir a opção "${del.name}"?`} onConfirm={remove} onCancel={() => setDel(null)} />}
     </Modal>
   )
 }
@@ -683,7 +712,7 @@ function PresetEditor({ preset, userId, customFoods, onFoodCreated, onClose, onS
   const { toast } = useApp()
   const [name,    setName]    = useState(preset?.name || '')
   const [icon,    setIcon]    = useState(preset?.icon || '🍱')
-  const [foods,   setFoods]   = useState(preset?.foods || [])
+  const [foods,   setFoods]   = useState(() => recalcItems(preset?.foods || [], customFoods))
   const [addFood, setAddFood] = useState(false)
   const [saving,  setSaving]  = useState(false)
 
@@ -691,26 +720,26 @@ function PresetEditor({ preset, userId, customFoods, onFoodCreated, onClose, onS
   const totals = sumMacros(foods)
 
   const save = async () => {
-    if (!name.trim()) return toast('Dê um nome ao preset.')
+    if (!name.trim()) return toast('Dê um nome à opção.')
     if (!foods.length) return toast('Adicione pelo menos um alimento.')
     setSaving(true)
     try {
       if (preset) await presetService.update(preset.id, { name, icon, foods })
       else        await presetService.create(userId, { name, icon, foods })
-      toast(preset ? 'Preset atualizado!' : 'Preset criado!')
+      toast(preset ? 'Opção atualizada!' : 'Opção criada!')
       await onSaved()
     } catch(e) { toast('Erro: '+e.message) } finally { setSaving(false) }
   }
 
   return (
-    <FormSheet title={preset ? 'Editar Preset' : 'Novo Preset'} onClose={onClose} onSave={save} saving={saving}
-      saveLabel={preset ? 'Salvar alterações' : 'Criar preset'}>
+    <FormSheet title={preset ? 'Editar Opção' : 'Nova Opção'} onClose={onClose} onSave={save} saving={saving}
+      saveLabel={preset ? 'Salvar alterações' : 'Criar opção'}>
       <div style={{ display:'flex', gap:10 }}>
         <select value={icon} onChange={e => setIcon(e.target.value)}
           style={{ background:'var(--bg3)', border:'1.5px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t1)', padding:'10px', fontSize:22, width:56 }}>
           {MEAL_ICONS.map(ic => <option key={ic} value={ic}>{ic}</option>)}
         </select>
-        <input className="inp" placeholder="Nome do preset (ex: Mingau de Aveia)" value={name} onChange={e => setName(e.target.value)} autoFocus />
+        <input className="inp" placeholder="Nome da opção (ex: Mingau de Aveia)" value={name} onChange={e => setName(e.target.value)} autoFocus />
       </div>
 
       {foods.length > 0 && (
@@ -735,7 +764,7 @@ function PresetEditor({ preset, userId, customFoods, onFoodCreated, onClose, onS
 
       <button onClick={() => setAddFood(true)}
         style={{ padding:'12px', border:'1.5px dashed var(--b3)', borderRadius:'var(--r)', color:'var(--t2)', fontSize:13, fontWeight:600, background:'none', cursor:'pointer' }}>
-        + Adicionar alimento ao preset
+        + Adicionar alimento à opção
       </button>
 
       {addFood && (

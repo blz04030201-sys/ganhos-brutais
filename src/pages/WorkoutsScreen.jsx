@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '../hooks/useAppContext'
 import { gymService, workoutService, exerciseService, logService } from '../services/workouts'
-import { WORKOUT_COLORS, GYM_ICONS, dateLabel, calcVolume } from '../utils/helpers'
+import { WORKOUT_COLORS, GYM_ICONS, GYM_COLORS, dateLabel, calcVolume } from '../utils/helpers'
 import { consumeWorkoutIntent } from '../utils/navIntent'
 import { useDragSort } from '../hooks/useDragSort'
 import { Modal, FormSheet, Confirm, Loader, Empty, SheetPicker } from '../components/UI'
@@ -40,7 +40,7 @@ function GymList({ onSelect }) {
   const [modal,   setModal]   = useState(false)
   const [editing, setEditing] = useState(null)
   const [del,     setDel]     = useState(null)
-  const [form,    setForm]    = useState({ name:'', icon:'🏋️' })
+  const [form,    setForm]    = useState({ name:'', icon:'🏋️', color:'#3B82F6' })
 
   useEffect(() => { load() }, [userId])
   const load = async () => {
@@ -52,18 +52,18 @@ function GymList({ onSelect }) {
     await gymService.reorder(next.map(g => g.id))
   })
 
-  const openNew  = () => { setEditing(null); setForm({ name:'', icon:'🏋️' }); setModal(true) }
-  const openEdit = (g, e) => { e.stopPropagation(); setEditing(g); setForm({ name:g.name, icon:g.icon }); setModal(true) }
+  const openNew  = () => { setEditing(null); setForm({ name:'', icon:'🏋️', color:'#3B82F6' }); setModal(true) }
+  const openEdit = (g, e) => { e.stopPropagation(); setEditing(g); setForm({ name:g.name, icon:g.icon, color:g.color||'#3B82F6' }); setModal(true) }
 
   const save = async () => {
     if (!form.name.trim()) return
     try {
       if (editing) {
-        const u = await gymService.update(editing.id, { name:form.name, icon:form.icon })
+        const u = await gymService.update(editing.id, { name:form.name, icon:form.icon, color:form.color })
         setGyms(gs => gs.map(x => x.id===editing.id ? u : x))
         toast('Academia atualizada!')
       } else {
-        const g = await gymService.create(userId, { name:form.name, icon:form.icon, sort_order:gyms.length })
+        const g = await gymService.create(userId, { name:form.name, icon:form.icon, color:form.color, sort_order:gyms.length })
         setGyms(gs => [...gs, g])
         toast('Academia criada!')
       }
@@ -96,10 +96,10 @@ function GymList({ onSelect }) {
                 {...getItemProps(i)}
                 onClick={() => onSelect(g)}
                 className={dragIndex === i ? 'drag-ghost' : ''}
-                style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--r)', padding:'14px 16px', display:'flex', alignItems:'center', gap:12, cursor:'pointer', userSelect:'none' }}
+                style={{ background:'var(--card)', border:`1px solid ${(g.color||'var(--accent)')}33`, borderLeft:`4px solid ${g.color||'var(--accent)'}`, borderRadius:'var(--r)', padding:'14px 16px', display:'flex', alignItems:'center', gap:12, cursor:'pointer', userSelect:'none' }}
               >
                 <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:18, color:'var(--t3)', padding:'8px 4px' }}>☰</span>
-                <span style={{ fontSize:30 }}>{g.icon}</span>
+                <span style={{ fontSize:22, width:34, height:34, borderRadius:10, background:`${(g.color||'var(--accent)')}1f`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{g.icon}</span>
                 <div style={{ flex:1 }}>
                   <div style={{ fontWeight:700, fontSize:15, color:'var(--t1)' }}>{g.name}</div>
                   <div style={{ color:'var(--t3)', fontSize:12, marginTop:2 }}>Toque para ver treinos →</div>
@@ -115,6 +115,15 @@ function GymList({ onSelect }) {
       {modal && (
         <FormSheet title={editing ? 'Editar Academia' : 'Nova Academia'} onClose={() => setModal(false)} onSave={save} saveLabel={editing ? 'Salvar alterações' : 'Criar academia'}>
           <input className="inp" placeholder="Nome da academia" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} autoFocus />
+          <div>
+            <p className="label" style={{ marginBottom:8 }}>Cor de identificação</p>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+              {GYM_COLORS.map(c => (
+                <button key={c} onClick={() => setForm(f=>({...f,color:c}))}
+                  style={{ width:30, height:30, borderRadius:'50%', background:c, border:`3px solid ${form.color===c?'#fff':'transparent'}`, boxShadow:form.color===c?`0 0 0 2px ${c}`:(c==='#FFFFFF'?'0 0 0 1px var(--b3) inset':'none'), cursor:'pointer' }} />
+              ))}
+            </div>
+          </div>
           <div>
             <p className="label" style={{ marginBottom:8 }}>Ícone</p>
             <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
@@ -214,9 +223,12 @@ function WorkoutList({ gym, onBack, onSelect }) {
                 style={{ background:'var(--card)', borderLeft:`4px solid ${w.color||'var(--accent)'}`, border:`1px solid ${w.color||'var(--accent)'}22`, borderLeftWidth:4, borderLeftColor:w.color||'var(--accent)', borderRadius:'var(--r)', padding:'14px 16px', display:'flex', alignItems:'center', gap:12, cursor:'pointer', userSelect:'none' }}
               >
                 <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:18, color:'var(--t3)', padding:'8px 4px' }}>☰</span>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontWeight:700, fontSize:15, color:'var(--t1)' }}>{w.display_name||w.name}</div>
-                  <div style={{ color:'var(--t3)', fontSize:12, marginTop:2, display:'flex', alignItems:'center', gap:6 }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontWeight:800, fontSize:17, color:'var(--t1)', letterSpacing:'-0.01em' }}>{w.name}</div>
+                  {w.display_name && w.display_name !== w.name && (
+                    <div style={{ color:'var(--t2)', fontSize:12, marginTop:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{w.display_name}</div>
+                  )}
+                  <div style={{ color:'var(--t3)', fontSize:11, marginTop:3, display:'flex', alignItems:'center', gap:6 }}>
                     {w.day_label && <span>{w.day_label}</span>}
                     <span>{w.day_label ? '·' : ''} {exCounts[w.id] ?? 0} exercícios</span>
                   </div>
@@ -330,36 +342,40 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
         : (
           <div style={{ padding:'0 16px', display:'flex', flexDirection:'column', gap:8 }}>
             <p style={{ fontSize:11, color:'var(--t3)', marginBottom:4 }}>☰ Arraste para reordenar</p>
-            {exercises.map((ex, i) => (
+            {exercises.map((ex, i) => {
+              const last = lastSets[ex.id]
+              return (
               <div
                 key={ex.id}
                 {...getItemProps(i)}
                 className={dragIndex === i ? 'drag-ghost' : ''}
                 style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--r)', overflow:'hidden', userSelect:'none' }}
               >
-                <div style={{ padding:'13px 14px', display:'flex', alignItems:'center', gap:10 }}>
-                  <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:18, color:'var(--t3)', padding:'8px 4px' }}>☰</span>
+                <div style={{ padding:'9px 12px', display:'flex', alignItems:'center', gap:8 }}>
+                  <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:16, color:'var(--t3)', padding:'6px 2px' }}>☰</span>
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontWeight:700, fontSize:15, color:'var(--t1)' }}>{ex.name}</div>
-                    <div style={{ color:'var(--t3)', fontSize:12, marginTop:2 }}>{ex.valid_sets} séries válidas</div>
+                    <div style={{ fontWeight:700, fontSize:14, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ex.name}</div>
+                    {last ? (
+                      <div style={{ display:'flex', gap:5, flexWrap:'wrap', marginTop:3 }}>
+                        {last.sets.map((s,si) => (
+                          <span key={si} style={{ fontSize:10, fontWeight:700, color:'var(--t2)', background:'var(--bg3)', borderRadius:99, padding:'1px 6px' }}>
+                            {si+1}ª {s.weight}kg×{s.reps}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ color:'var(--t3)', fontSize:11, marginTop:2 }}>{ex.valid_sets} séries válidas</div>
+                    )}
                   </div>
-                  {lastSets[ex.id] ? (
-                    <div style={{ textAlign:'right', flexShrink:0 }}>
-                      <div style={{ fontWeight:800, fontSize:20, color:'var(--accent)', lineHeight:1.15 }}>{lastSets[ex.id].weight}kg</div>
-                      <div style={{ fontSize:11, color:'var(--t3)', marginTop:1 }}>{lastSets[ex.id].reps} reps</div>
-                    </div>
-                  ) : (
-                    <div style={{ textAlign:'right', flexShrink:0, color:'var(--t3)', fontSize:13, fontWeight:600 }}>Anotar</div>
-                  )}
-                  <button onClick={e => openEdit(ex, e)} style={{ color:'var(--t2)', padding:6, fontSize:17, background:'none', border:'none', cursor:'pointer' }}>✏️</button>
-                  <button onClick={e => { e.stopPropagation(); setDel(ex) }} style={{ color:'var(--red)', padding:6, fontSize:17, background:'none', border:'none', cursor:'pointer' }}>🗑️</button>
+                  <button onClick={e => openEdit(ex, e)} style={{ color:'var(--t2)', padding:5, fontSize:15, background:'none', border:'none', cursor:'pointer' }}>✏️</button>
+                  <button onClick={e => { e.stopPropagation(); setDel(ex) }} style={{ color:'var(--red)', padding:5, fontSize:15, background:'none', border:'none', cursor:'pointer' }}>🗑️</button>
                 </div>
                 <div style={{ display:'flex', borderTop:'1px solid var(--b2)' }}>
-                  <button onClick={() => onHistory(ex)} style={{ flex:1, padding:'10px', fontSize:12, fontWeight:600, color:'var(--t2)', background:'none', border:'none', borderRight:'1px solid var(--b2)', cursor:'pointer' }}>📊 Histórico</button>
-                  <button onClick={() => onLog(ex)} style={{ flex:1, padding:'10px', fontSize:12, fontWeight:700, color:'var(--accent)', background:'var(--accent10)', border:'none', cursor:'pointer' }}>➕ Registrar</button>
+                  <button onClick={() => onHistory(ex)} style={{ flex:1, padding:'7px', fontSize:11, fontWeight:600, color:'var(--t2)', background:'none', border:'none', borderRight:'1px solid var(--b2)', cursor:'pointer' }}>📊 Histórico</button>
+                  <button onClick={() => onLog(ex)} style={{ flex:1, padding:'7px', fontSize:11, fontWeight:700, color:'var(--accent)', background:'var(--accent10)', border:'none', cursor:'pointer' }}>➕ Registrar</button>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         )
       }

@@ -23,11 +23,11 @@ export const FOODS_DB = [
   {n:"Peito de peru",c:109,p:18.5,cb:1.5,f:3,u:"g"},
   {n:"Presunto magro",c:121,p:17,cb:2,f:5,u:"g"},
   {n:"Bacon",c:541,p:37,cb:1.4,f:42,u:"g"},
-  {n:"Hambúrguer (120g)",c:290,p:22,cb:0,f:22,u:"unid",alt:["g"]},
+  {n:"Hambúrguer (120g)",c:242,p:18,cb:0,f:18,u:"unid",g:120,alt:["g"]},
   // Ovos
-  {n:"Ovo inteiro",c:143,p:12.6,cb:0.6,f:9.5,u:"unid",alt:["g"]},
-  {n:"Clara de ovo",c:17,p:3.6,cb:0.2,f:0.1,u:"unid",alt:["g"]},
-  {n:"Ovo cozido",c:155,p:13,cb:1.1,f:10.6,u:"unid",alt:["g"]},
+  {n:"Ovo inteiro",c:143,p:12.6,cb:0.6,f:9.5,u:"unid",g:50,alt:["g"]},
+  {n:"Clara de ovo",c:17,p:3.6,cb:0.2,f:0.1,u:"unid",g:33,alt:["g"]},
+  {n:"Ovo cozido",c:155,p:13,cb:1.1,f:10.6,u:"unid",g:50,alt:["g"]},
   // Suplementos
   {n:"Whey Protein concentrado",c:370,p:73,cb:12,f:5,u:"g"},
   {n:"Whey Protein isolado",c:357,p:86,cb:3,f:1.5,u:"g"},
@@ -54,7 +54,7 @@ export const FOODS_DB = [
   {n:"Iogurte grego 0%",c:57,p:10,cb:3.5,f:0.4,u:"g"},
   {n:"Iogurte natural",c:61,p:3.5,cb:4.7,f:3.3,u:"g"},
   {n:"Queijo mussarela",c:280,p:22,cb:2.2,f:20,u:"g"},
-  {n:"Queijo mussarela fatiado",c:250,p:20,cb:2,f:18,u:"unid",alt:["g"]},
+  {n:"Queijo mussarela fatiado",c:250,p:20,cb:2,f:18,u:"unid",g:20,alt:["g"]},
   {n:"Queijo cottage",c:98,p:11,cb:3.4,f:4.3,u:"g"},
   {n:"Requeijão light",c:140,p:7.5,cb:4,f:10,u:"g"},
   {n:"Creme de ricota light",c:92,p:8,cb:4,f:4.5,u:"g"},
@@ -70,25 +70,25 @@ export const FOODS_DB = [
   {n:"Feijão preto cozido",c:77,p:5,cb:14,f:0.5,u:"g"},
   {n:"Lentilha cozida",c:116,p:9,cb:20,f:0.4,u:"g"},
   {n:"Grão-de-bico cozido",c:164,p:8.9,cb:27,f:2.6,u:"g"},
-  {n:"Pão francês",c:300,p:9,cb:58,f:3,u:"unid",alt:["g"]},
-  {n:"Pão de hambúrguer",c:270,p:8,cb:50,f:4,u:"unid",alt:["g"]},
-  {n:"Pão de forma integral",c:247,p:9.4,cb:44,f:3.5,u:"unid",alt:["g"]},
+  {n:"Pão francês",c:300,p:9,cb:58,f:3,u:"unid",g:50,alt:["g"]},
+  {n:"Pão de hambúrguer",c:270,p:8,cb:50,f:4,u:"unid",g:50,alt:["g"]},
+  {n:"Pão de forma integral",c:247,p:9.4,cb:44,f:3.5,u:"unid",g:25,alt:["g"]},
   {n:"Tapioca (goma)",c:340,p:0.2,cb:85,f:0.1,u:"g"},
-  {n:"Torrada",c:388,p:10,cb:72,f:6.5,u:"unid",alt:["g"]},
+  {n:"Torrada",c:388,p:10,cb:72,f:6.5,u:"unid",g:10,alt:["g"]},
   {n:"Cuscuz",c:340,p:11,cb:72,f:1.3,u:"g"},
   // Frutas
-  {n:"Banana prata",c:92,p:1.4,cb:23.8,f:0.1,u:"unid",alt:["g"]},
-  {n:"Banana nanica",c:89,p:1.1,cb:22.8,f:0.1,u:"unid",alt:["g"]},
-  {n:"Maçã",c:52,p:0.3,cb:14,f:0.2,u:"unid",alt:["g"]},
+  {n:"Banana prata",c:92,p:1.4,cb:23.8,f:0.1,u:"unid",g:70,alt:["g"]},
+  {n:"Banana nanica",c:89,p:1.1,cb:22.8,f:0.1,u:"unid",g:100,alt:["g"]},
+  {n:"Maçã",c:52,p:0.3,cb:14,f:0.2,u:"unid",g:130,alt:["g"]},
   {n:"Manga",c:65,p:0.5,cb:17,f:0.3,u:"g"},
   {n:"Melancia",c:30,p:0.6,cb:7.6,f:0.2,u:"g"},
   {n:"Morango",c:32,p:0.7,cb:7.7,f:0.3,u:"g"},
   {n:"Uva",c:69,p:0.7,cb:18,f:0.2,u:"g"},
-  {n:"Laranja",c:43,p:0.9,cb:10,f:0.1,u:"unid",alt:["g"]},
+  {n:"Laranja",c:43,p:0.9,cb:10,f:0.1,u:"unid",g:130,alt:["g"]},
   {n:"Mamão",c:45,p:0.5,cb:11.7,f:0.1,u:"g"},
   {n:"Abacaxi",c:50,p:0.5,cb:13,f:0.1,u:"g"},
-  {n:"Kiwi",c:61,p:1.1,cb:15,f:0.5,u:"unid",alt:["g"]},
-  {n:"Pera",c:57,p:0.4,cb:15.2,f:0.1,u:"unid",alt:["g"]},
+  {n:"Kiwi",c:61,p:1.1,cb:15,f:0.5,u:"unid",g:70,alt:["g"]},
+  {n:"Pera",c:57,p:0.4,cb:15.2,f:0.1,u:"unid",g:150,alt:["g"]},
   // Verduras & Legumes
   {n:"Brócolis",c:34,p:2.8,cb:7,f:0.4,u:"g"},
   {n:"Alface",c:15,p:1.4,cb:2.9,f:0.2,u:"g"},
@@ -105,7 +105,7 @@ export const FOODS_DB = [
   {n:"Pasta de amendoim",c:588,p:25,cb:20,f:50,u:"g"},
   {n:"Amendoim",c:567,p:25.8,cb:16,f:49,u:"g"},
   {n:"Castanha de caju",c:553,p:18,cb:30,f:44,u:"g"},
-  {n:"Castanha-do-pará",c:656,p:14,cb:12,f:66,u:"unid",alt:["g"]},
+  {n:"Castanha-do-pará",c:656,p:14,cb:12,f:66,u:"unid",g:5,alt:["g"]},
   {n:"Amêndoas",c:579,p:21,cb:22,f:49,u:"g"},
   {n:"Abacate",c:160,p:2,cb:9,f:15,u:"g"},
   {n:"Creme de avelã",c:539,p:6,cb:58,f:31,u:"g"},
@@ -134,27 +134,22 @@ export function findFood(name, customFoods = []) {
   return FOODS_DB.find(f => f.n === name) || null
 }
 
-/** Calculate macros for a food given amount and unit */
+/** Calculate macros for a food given amount and unit.
+ *  IMPORTANT: food.c/p/cb/f are always stored on a per-100g (or per-100ml) basis,
+ *  matching TACO/USDA tables. For "unid" (per-unit) foods, food.g holds the
+ *  typical weight in grams of ONE unit, so amount×g/100 gives the real grams
+ *  consumed before applying the per-100g values. This keeps "unid" and "g"
+ *  representations of the same food always consistent with each other. */
 export function calcMacros(food, amount, unit) {
   const a = parseFloat(amount) || 0
   const isUnit = unit === 'unid'
+  const grams = isUnit ? a * (food.g || 100) : a
 
-  if (isUnit) {
-    // Per-unit food: values already represent one unit
-    return {
-      cal:  Math.round(food.c * a * 10) / 10,
-      prot: Math.round(food.p * a * 10) / 10,
-      carb: Math.round(food.cb * a * 10) / 10,
-      fat:  Math.round(food.f * a * 10) / 10,
-    }
-  } else {
-    // Per 100g or 100ml
-    return {
-      cal:  Math.round((food.c * a / 100) * 10) / 10,
-      prot: Math.round((food.p * a / 100) * 10) / 10,
-      carb: Math.round((food.cb * a / 100) * 10) / 10,
-      fat:  Math.round((food.f * a / 100) * 10) / 10,
-    }
+  return {
+    cal:  Math.round((food.c * grams / 100) * 10) / 10,
+    prot: Math.round((food.p * grams / 100) * 10) / 10,
+    carb: Math.round((food.cb * grams / 100) * 10) / 10,
+    fat:  Math.round((food.f * grams / 100) * 10) / 10,
   }
 }
 
@@ -164,6 +159,24 @@ export function buildFoodItem(name, amount, unit) {
   const u = unit || fd?.u || 'g'
   const macros = fd ? calcMacros(fd, amount, u) : { cal: 0, prot: 0, carb: 0, fat: 0 }
   return { food_name: name, amount, unit: u, ...macros }
+}
+
+/** Recompute a single meal-item's macros live from the food DB/custom foods,
+ *  using its stored amount+unit. This "heals" any item whose persisted
+ *  snapshot (calories/protein/carbs/fat columns in meal_items) went stale or
+ *  was saved as 0 — e.g. from an older calculation bug — without requiring
+ *  the user to touch the quantity again. Items whose food can't be matched
+ *  (e.g. the underlying custom food was deleted) keep their stored snapshot. */
+export function recalcItem(item, customFoods = []) {
+  const fd = findFood(item.food_name, customFoods)
+  if (!fd) return item
+  const m = calcMacros(fd, item.amount, item.unit)
+  return { ...item, calories: m.cal, protein: m.prot, carbs: m.carb, fat: m.fat }
+}
+
+/** Same as recalcItem but for a list of items. */
+export function recalcItems(items = [], customFoods = []) {
+  return items.map(i => recalcItem(i, customFoods))
 }
 
 /** Get available units for a food */
