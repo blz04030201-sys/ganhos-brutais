@@ -1,6 +1,19 @@
 export const todayISO = () => new Date().toISOString().split('T')[0]
 export const todayLabel = () => new Date().toLocaleDateString('pt-BR')
 export const dayNow = () => ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'][new Date().getDay()]
+
+/** True if a workout's day_label (e.g. "Segunda-feira") matches today's weekday */
+export function matchesToday(dayLabel) {
+  if (!dayLabel) return false
+  const today = dayNow().toLowerCase()
+  return dayLabel.toLowerCase().startsWith(today)
+}
+
+/** Pick the workout scheduled for today out of a list, falling back to the first one */
+export function pickTodaysWorkout(workouts = []) {
+  if (!workouts.length) return null
+  return workouts.find(w => matchesToday(w.day_label)) || workouts[0]
+}
 export const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e||'').trim())
 
 export const dateLabel = iso => {

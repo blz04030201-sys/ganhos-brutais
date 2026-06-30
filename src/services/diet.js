@@ -215,3 +215,57 @@ export const measurementService = {
     if (error) throw error
   },
 }
+
+// ── MEAL PRESETS (reusable food groups, e.g. "Mingau de Aveia") ──
+export const presetService = {
+  async list(userId) {
+    const { data, error } = await supabase
+      .from('meal_presets')
+      .select('*')
+      .eq('user_id', userId)
+      .order('sort_order', { ascending: true })
+    if (error) throw error
+    return data || []
+  },
+
+  async create(userId, fields) {
+    const { data, error } = await supabase
+      .from('meal_presets')
+      .insert({ user_id: userId, sort_order: 0, ...fields })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async update(id, fields) {
+    const { data, error } = await supabase
+      .from('meal_presets')
+      .update(fields)
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async delete(id) {
+    const { error } = await supabase.from('meal_presets').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  async duplicate(userId, preset) {
+    return this.create(userId, {
+      name: `${preset.name} (cópia)`,
+      icon: preset.icon,
+      foods: preset.foods,
+      sort_order: preset.sort_order,
+    })
+  },
+
+  async reorder(orderedIds) {
+    await Promise.all(orderedIds.map((id, i) =>
+      supabase.from('meal_presets').update({ sort_order: i }).eq('id', id)
+    ))
+  },
+}

@@ -3,7 +3,8 @@ import { useApp } from '../hooks/useAppContext'
 import { gymService, workoutService, exerciseService, logService } from '../services/workouts'
 import { profileService } from '../services/profile'
 import { dietGoalsService, mealService, mealPlanService } from '../services/diet'
-import { todayISO, dateLabel, sumMacros } from '../utils/helpers'
+import { todayISO, dateLabel, sumMacros, pickTodaysWorkout } from '../utils/helpers'
+import { setWorkoutIntent } from '../utils/navIntent'
 import { Loader } from '../components/UI'
 
 const DAY_STR = () => {
@@ -63,9 +64,9 @@ export default function DashboardScreen({ setTab }) {
         setSelectedGym(gym)
         const ws = await workoutService.listByGym(gym.id)
         setWorkouts(ws)
-        // last workout
-        if (ws.length > 0) {
-          const wk = ws[0]
+        // pick today's scheduled workout (by day_label), fallback to the first one
+        const wk = pickTodaysWorkout(ws)
+        if (wk) {
           setSelectedWk(wk)
           await loadExercises(wk)
         }
@@ -106,6 +107,8 @@ export default function DashboardScreen({ setTab }) {
     setTodayLogs([])
     const ws = await workoutService.listByGym(gym.id)
     setWorkouts(ws)
+    const wk = pickTodaysWorkout(ws)
+    if (wk) { setSelectedWk(wk); await loadExercises(wk) }
     try { await profileService.upsert(userId, { last_gym_id: gym.id }) } catch(_) {}
   }
 
@@ -197,7 +200,7 @@ export default function DashboardScreen({ setTab }) {
           onSelectGym={selectGym}
           workouts={workouts}
           onSelectWorkout={selectWorkout}
-          onStart={() => {}}
+          onStart={() => { if (selectedGym && selectedWk) { setWorkoutIntent(selectedGym, selectedWk); setTab('workouts') } }}
           setTab={setTab}
         />
       </div>
@@ -322,7 +325,7 @@ function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGy
 
             {/* CTA */}
             <button
-              onClick={() => {}}
+              onClick={onStart}
               style={{
                 width:'100%', padding:'11px', borderRadius:'var(--r)',
                 background:'linear-gradient(90deg, #2563EB, #3B82F6)',
@@ -383,29 +386,42 @@ function DietCard({ totals, goals, weight, setTab }) {
     { label:'Gorduras',    val:totals.fat||0,  goal:goals.fat,     color:'#60A5FA', min:0.8, max:1.2 },
   ]
   const kcalPct = pct(totals.cal||0, goals.calories)
+  const r = 26, circ = 2*Math.PI*r, dash = circ*(kcalPct/100)
 
   return (
     <button
       onClick={() => setTab('diet')}
       style={{ width:'100%', background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'16px', textAlign:'left', cursor:'pointer' }}
     >
-      {/* Header */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+      {/* Header with calorie ring */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
           <div style={{ width:28, height:28, borderRadius:8, background:'rgba(16,185,129,0.15)', border:'1px solid rgba(16,185,129,0.25)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14 }}>🥗</div>
           <span style={{ fontSize:10, fontWeight:800, color:'#34D399', textTransform:'uppercase', letterSpacing:'0.1em' }}>Dieta de Hoje</span>
         </div>
-        <div style={{ textAlign:'right' }}>
-          <span style={{ fontSize:16, fontWeight:800 }}>{Math.round(totals.cal||0)}</span>
-          <span style={{ fontSize:11, color:'var(--t3)' }}> / {goals.calories} kcal</span>
+        <div style={{ position:'relative', width:60, height:60, flexShrink:0 }}>
+          <svg width="60" height="60" viewBox="0 0 60 60">
+            <defs>
+              <linearGradient id="kcalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#34D399" />
+                <stop offset="100%" stopColor="#10B981" />
+              </linearGradient>
+            </defs>
+            <circle cx="30" cy="30" r={r} fill="none" stroke="var(--b1)" strokeWidth="5" />
+            <circle cx="30" cy="30" r={r} fill="none" stroke="url(#kcalGrad)" strokeWidth="5"
+              strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" transform="rotate(-90 30 30)"
+              style={{ transition:'stroke-dasharray 0.6s cubic-bezier(0.32,0.72,0,1)' }} />
+          </svg>
+          <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:800, color:'var(--t1)' }}>
+            {kcalPct}%
+          </div>
         </div>
       </div>
 
-      {/* kcal progress bar */}
-      <div style={{ height:7, background:'var(--b1)', borderRadius:99, overflow:'hidden', marginBottom:6 }}>
-        <div style={{ height:'100%', width:`${kcalPct}%`, background:'linear-gradient(90deg,#10B981,#34D399)', borderRadius:99, transition:'width 0.4s' }} />
+      <div style={{ display:'flex', alignItems:'baseline', gap:5, marginBottom:14 }}>
+        <span style={{ fontSize:22, fontWeight:800, color:'var(--t1)' }}>{Math.round(totals.cal||0)}</span>
+        <span style={{ fontSize:12, color:'var(--t3)' }}>/ {goals.calories} kcal</span>
       </div>
-      <div style={{ fontSize:11, color:'var(--t3)', marginBottom:14 }}>{kcalPct}% concluído</div>
 
       {/* Macro columns */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
@@ -413,6 +429,7 @@ function DietCard({ totals, goals, weight, setTab }) {
           const gk = weight ? (m.val / weight) : null
           const ok = gk && gk >= m.min && gk <= m.max
           const low = gk && gk < m.min
+          const mp = pct(m.val, m.goal)
           return (
             <div key={m.label}>
               <div style={{ fontSize:9, fontWeight:800, color:m.color, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:4 }}>{m.label}</div>
@@ -426,24 +443,14 @@ function DietCard({ totals, goals, weight, setTab }) {
                   {' / '}{m.max} g/kg
                 </div>
               )}
-              <div style={{ height:4, background:'var(--b1)', borderRadius:99, overflow:'hidden', marginTop:5 }}>
-                <div style={{ height:'100%', width:`${pct(m.val,m.goal)}%`, background:m.color, borderRadius:99 }} />
+              <div style={{ height:5, background:'var(--b1)', borderRadius:99, overflow:'hidden', marginTop:6 }}>
+                <div style={{
+                  height:'100%', width:`${mp}%`, borderRadius:99, transition:'width 0.6s cubic-bezier(0.32,0.72,0,1)',
+                  background:`linear-gradient(90deg, color-mix(in srgb, ${m.color} 65%, transparent), ${m.color})`,
+                  boxShadow: mp >= 100 ? `0 0 6px ${m.color}` : 'none',
+                }} />
               </div>
-              <div style={{ fontSize:10, fontWeight:700, color:m.color, marginTop:3 }}>{pct(m.val,m.goal)}%</div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Faltam hoje */}
-      <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid var(--b1)', display:'flex', gap:0 }}>
-        <div style={{ fontSize:10, fontWeight:700, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'0.06em', alignSelf:'center', marginRight:12 }}>Faltam hoje</div>
-        {macros.map(m => {
-          const diff = Math.max(0, m.goal - (m.val||0))
-          return (
-            <div key={m.label} style={{ flex:1, textAlign:'center' }}>
-              <div style={{ fontSize:14, fontWeight:800, color:m.color }}>{Math.round(diff)}g</div>
-              <div style={{ fontSize:9, color:'var(--t3)', marginTop:1 }}>{m.label.split('s')[0].toLowerCase()}</div>
+              <div style={{ fontSize:10, fontWeight:700, color:m.color, marginTop:3 }}>{mp}%</div>
             </div>
           )
         })}

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../hooks/useAppContext'
 
 // ── Toast ─────────────────────────────────────────────────────
@@ -6,6 +6,38 @@ export function Toast() {
   const { toastMsg } = useApp()
   if (!toastMsg) return null
   return <div className="toast">{toastMsg}</div>
+}
+
+// ── Form Sheet (standardized create/edit form used across the whole app) ──
+// Sticky header + scrollable body + sticky footer with Cancel/Save, so the
+// Save button is ALWAYS reachable, even with the keyboard open.
+export function FormSheet({ title, onClose, onSave, saving, saveLabel = 'Salvar', saveDisabled, danger, children }) {
+  useEffect(() => {
+    const handler = e => { if (e.key === 'Escape') onClose?.() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  return (
+    <div className="modal-overlay" onPointerDown={e => { if (e.target === e.currentTarget) onClose?.() }}>
+      <div className="modal-sheet">
+        <div className="modal-handle" style={{ marginTop:12, flexShrink:0 }} />
+        <div className="form-sheet-header">
+          <span className="title-md">{title}</span>
+          <button onClick={onClose} style={{ color:'var(--t3)', fontSize:22, lineHeight:1, minWidth:36, minHeight:36, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
+        </div>
+        <div className="form-sheet-body">
+          {children}
+        </div>
+        <div className="form-sheet-footer">
+          <button className="btn btn-ghost btn-full" onClick={onClose}>Cancelar</button>
+          <button className={`btn btn-full ${danger ? 'btn-danger' : 'btn-primary'}`} onClick={onSave} disabled={saving || saveDisabled}>
+            {saving ? '⏳ Salvando...' : saveLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // ── Modal Sheet ───────────────────────────────────────────────
@@ -86,24 +118,32 @@ export function Loader() {
 }
 
 // ── Macro Ring ────────────────────────────────────────────────
+let ringIdCounter = 0
 export function MacroRing({ value, goal, color, label, unit = '' }) {
   const pct = goal > 0 ? Math.min(1, value / goal) : 0
   const r = 28
   const circ = 2 * Math.PI * r
   const dash = circ * pct
+  const gradId = useRef(`ring-grad-${ringIdCounter++}`)
   return (
-    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
       <svg width="70" height="70" viewBox="0 0 70 70">
-        <circle cx="35" cy="35" r={r} fill="none" stroke="var(--b1)" strokeWidth="5" />
+        <defs>
+          <linearGradient id={gradId.current} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={color} stopOpacity="0.65" />
+            <stop offset="100%" stopColor={color} stopOpacity="1" />
+          </linearGradient>
+        </defs>
+        <circle cx="35" cy="35" r={r} fill="none" stroke="var(--b1)" strokeWidth="6" />
         <circle
           cx="35" cy="35" r={r}
           fill="none"
-          stroke={color}
-          strokeWidth="5"
+          stroke={`url(#${gradId.current})`}
+          strokeWidth="6"
           strokeDasharray={`${dash} ${circ}`}
           strokeLinecap="round"
           transform="rotate(-90 35 35)"
-          style={{ transition:'stroke-dasharray 0.4s ease' }}
+          style={{ transition:'stroke-dasharray 0.6s cubic-bezier(0.32,0.72,0,1)', filter: pct >= 1 ? `drop-shadow(0 0 4px ${color})` : 'none' }}
         />
         <text x="35" y="38" textAnchor="middle" fill="white" fontSize="13" fontWeight="700">
           {Math.round(value)}{unit}
@@ -119,7 +159,7 @@ export function ProgressBar({ value, goal, color }) {
   const pct = goal > 0 ? Math.min(100, (value / goal) * 100) : 0
   return (
     <div className="prog-bar">
-      <div className="prog-bar-fill" style={{ width:`${pct}%`, background: color }} />
+      <div className="prog-bar-fill" style={{ width:`${pct}%`, background: `linear-gradient(90deg, color-mix(in srgb, ${color} 70%, transparent), ${color})` }} />
     </div>
   )
 }

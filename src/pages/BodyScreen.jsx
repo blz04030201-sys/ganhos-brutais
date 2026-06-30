@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useApp } from '../hooks/useAppContext'
 import { measurementService } from '../services/diet'
 import { todayISO, dateLabel } from '../utils/helpers'
-import { Modal, Confirm, Loader, Empty, SectionHeader } from '../components/UI'
+import { Modal, FormSheet, Confirm, Loader, Empty, SectionHeader } from '../components/UI'
 
 export default function BodyScreen() {
   const { userId, toast } = useApp()
@@ -155,33 +155,26 @@ export default function BodyScreen() {
       <div style={{ height:16 }} />
 
       {modal && (
-        <Modal title={editing ? 'Editar Registro' : 'Novo Registro'} onClose={() => { setModal(false); setEditing(null) }}>
-          <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-            <div>
-              <label className="label" style={{ display:'block', marginBottom:6 }}>Data</label>
-              <input type="date" className="inp" value={form.date} onChange={e => setForm(f => ({...f, date:e.target.value}))} />
-            </div>
-
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-              <Field label="Peso (kg)"       val={form.weight}   k="weight"   set={setForm} />
-              <Field label="% Gordura"        val={form.body_fat} k="body_fat" set={setForm} />
-              <Field label="Cintura (cm)"     val={form.waist}    k="waist"    set={setForm} />
-              <Field label="Peito (cm)"       val={form.chest}    k="chest"    set={setForm} />
-              <Field label="Braço (cm)"       val={form.arm}      k="arm"      set={setForm} />
-              <Field label="Coxa (cm)"        val={form.thigh}    k="thigh"    set={setForm} />
-            </div>
-
-            <div>
-              <label className="label" style={{ display:'block', marginBottom:6 }}>Observações</label>
-              <textarea className="inp" rows={2} value={form.notes} onChange={e => setForm(f => ({...f, notes:e.target.value}))} placeholder="Como você está se sentindo..." style={{ resize:'none' }} />
-            </div>
-
-            <div style={{ display:'flex', gap:10, marginTop:4 }}>
-              <button className="btn btn-ghost btn-full" onClick={() => { setModal(false); setEditing(null) }}>Cancelar</button>
-              <button className="btn btn-primary btn-full" onClick={save}>Salvar</button>
-            </div>
+        <FormSheet title={editing ? 'Editar Registro' : 'Novo Registro'} onClose={() => { setModal(false); setEditing(null) }} onSave={save} saveLabel={editing ? 'Salvar alterações' : 'Criar registro'}>
+          <div>
+            <label className="label" style={{ display:'block', marginBottom:6 }}>Data</label>
+            <input type="date" className="inp" value={form.date} onChange={e => setForm(f => ({...f, date:e.target.value}))} />
           </div>
-        </Modal>
+
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+            <Field label="Peso (kg)"       val={form.weight}   k="weight"   set={setForm} />
+            <Field label="% Gordura"        val={form.body_fat} k="body_fat" set={setForm} />
+            <Field label="Cintura (cm)"     val={form.waist}    k="waist"    set={setForm} />
+            <Field label="Peito (cm)"       val={form.chest}    k="chest"    set={setForm} />
+            <Field label="Braço (cm)"       val={form.arm}      k="arm"      set={setForm} />
+            <Field label="Coxa (cm)"        val={form.thigh}    k="thigh"    set={setForm} />
+          </div>
+
+          <div>
+            <label className="label" style={{ display:'block', marginBottom:6 }}>Observações</label>
+            <textarea className="inp" rows={2} value={form.notes} onChange={e => setForm(f => ({...f, notes:e.target.value}))} placeholder="Como você está se sentindo..." style={{ resize:'none' }} />
+          </div>
+        </FormSheet>
       )}
 
       {del && <Confirm message={`Excluir registro de ${dateLabel(del.date)}?`} onConfirm={remove} onCancel={() => setDel(null)} />}

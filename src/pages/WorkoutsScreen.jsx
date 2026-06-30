@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { useApp } from '../hooks/useAppContext'
 import { gymService, workoutService, exerciseService, logService } from '../services/workouts'
 import { WORKOUT_COLORS, GYM_ICONS, dateLabel, calcVolume } from '../utils/helpers'
-import { Modal, Confirm, Loader, Empty, SheetPicker } from '../components/UI'
+import { consumeWorkoutIntent } from '../utils/navIntent'
+import { useDragSort } from '../hooks/useDragSort'
+import { Modal, FormSheet, Confirm, Loader, Empty, SheetPicker } from '../components/UI'
 
 export default function WorkoutsScreen() {
   const [view, setView] = useState('gyms')
@@ -10,32 +12,22 @@ export default function WorkoutsScreen() {
   const [selWorkout, setSelWorkout] = useState(null)
   const [selEx, setSelEx] = useState(null)
 
+  // Deep-link from Dashboard's "Iniciar Treino" button: jump straight to
+  // today's gym/workout instead of making the user navigate manually.
+  useEffect(() => {
+    const intent = consumeWorkoutIntent()
+    if (intent?.gym && intent?.workout) {
+      setSelGym(intent.gym)
+      setSelWorkout(intent.workout)
+      setView('exercises')
+    }
+  }, [])
+
   if (view === 'history')   return <ExHistory   ex={selEx}       onBack={() => setView('exercises')} />
   if (view === 'log')       return <LogSession  ex={selEx}       gym={selGym} workout={selWorkout} onBack={() => setView('exercises')} onDone={() => setView('exercises')} />
   if (view === 'exercises') return <ExList      workout={selWorkout} gym={selGym} onBack={() => setView('workouts')} onLog={ex => { setSelEx(ex); setView('log') }} onHistory={ex => { setSelEx(ex); setView('history') }} />
   if (view === 'workouts')  return <WorkoutList gym={selGym}     onBack={() => setView('gyms')}     onSelect={w => { setSelWorkout(w); setView('exercises') }} />
   return <GymList onSelect={g => { setSelGym(g); setView('workouts') }} />
-}
-
-/* ─────────────────────────────────────────────
-   DRAG HELPER HOOK
-───────────────────────────────────────────── */
-function useDragSort(items, onReorder) {
-  const dragIdx = useRef(null)
-
-  const onDragStart = (i) => { dragIdx.current = i }
-  const onDragOver  = (e, i) => {
-    e.preventDefault()
-    if (dragIdx.current === null || dragIdx.current === i) return
-    const next = [...items]
-    const [moved] = next.splice(dragIdx.current, 1)
-    next.splice(i, 0, moved)
-    dragIdx.current = i
-    onReorder(next)
-  }
-  const onDragEnd = () => { dragIdx.current = null }
-
-  return { onDragStart, onDragOver, onDragEnd }
 }
 
 /* ─────────────────────────────────────────────
@@ -55,7 +47,7 @@ function GymList({ onSelect }) {
     try { setGyms(await gymService.list(userId)) } finally { setLoading(false) }
   }
 
-  const { onDragStart, onDragOver, onDragEnd } = useDragSort(gyms, async (next) => {
+  const { dragIndex, getHandleProps, getItemProps } = useDragSort(gyms, async (next) => {
     setGyms(next)
     await gymService.reorder(next.map(g => g.id))
   })
@@ -101,14 +93,12 @@ function GymList({ onSelect }) {
             {gyms.map((g, i) => (
               <div
                 key={g.id}
-                draggable
-                onDragStart={() => onDragStart(i)}
-                onDragOver={e => onDragOver(e, i)}
-                onDragEnd={onDragEnd}
+                {...getItemProps(i)}
                 onClick={() => onSelect(g)}
+                className={dragIndex === i ? 'drag-ghost' : ''}
                 style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--r)', padding:'14px 16px', display:'flex', alignItems:'center', gap:12, cursor:'pointer', userSelect:'none' }}
               >
-                <span style={{ fontSize:12, color:'var(--t3)', cursor:'grab' }}>☰</span>
+                <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:18, color:'var(--t3)', padding:'8px 4px' }}>☰</span>
                 <span style={{ fontSize:30 }}>{g.icon}</span>
                 <div style={{ flex:1 }}>
                   <div style={{ fontWeight:700, fontSize:15, color:'var(--t1)' }}>{g.name}</div>
@@ -123,24 +113,18 @@ function GymList({ onSelect }) {
       }
 
       {modal && (
-        <Modal title={editing ? 'Editar Academia' : 'Nova Academia'} onClose={() => setModal(false)}>
-          <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-            <input className="inp" placeholder="Nome da academia" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} autoFocus />
-            <div>
-              <p className="label" style={{ marginBottom:8 }}>Ícone</p>
-              <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
-                {GYM_ICONS.map(ic => (
-                  <button key={ic} onClick={() => setForm(f=>({...f,icon:ic}))}
-                    style={{ fontSize:22, padding:'8px', borderRadius:'var(--rsm)', background:form.icon===ic?'var(--accent20)':'var(--bg3)', border:`1.5px solid ${form.icon===ic?'var(--accent)':'var(--b1)'}`, cursor:'pointer' }}>{ic}</button>
-                ))}
-              </div>
-            </div>
-            <div style={{ display:'flex', gap:10 }}>
-              <button className="btn btn-ghost btn-full" onClick={() => setModal(false)}>Cancelar</button>
-              <button className="btn btn-primary btn-full" onClick={save}>Salvar</button>
+        <FormSheet title={editing ? 'Editar Academia' : 'Nova Academia'} onClose={() => setModal(false)} onSave={save} saveLabel={editing ? 'Salvar alterações' : 'Criar academia'}>
+          <input className="inp" placeholder="Nome da academia" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} autoFocus />
+          <div>
+            <p className="label" style={{ marginBottom:8 }}>Ícone</p>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+              {GYM_ICONS.map(ic => (
+                <button key={ic} onClick={() => setForm(f=>({...f,icon:ic}))}
+                  style={{ fontSize:22, padding:'8px', borderRadius:'var(--rsm)', background:form.icon===ic?'var(--accent20)':'var(--bg3)', border:`1.5px solid ${form.icon===ic?'var(--accent)':'var(--b1)'}`, cursor:'pointer' }}>{ic}</button>
+              ))}
             </div>
           </div>
-        </Modal>
+        </FormSheet>
       )}
       {del && <Confirm message={`Excluir "${del.name}"? Todos os treinos e histórico serão perdidos.`} onConfirm={remove} onCancel={() => setDel(null)} />}
     </div>
@@ -153,6 +137,7 @@ function GymList({ onSelect }) {
 function WorkoutList({ gym, onBack, onSelect }) {
   const { userId, toast } = useApp()
   const [workouts, setWorkouts] = useState([])
+  const [exCounts,  setExCounts]  = useState({})
   const [loading,  setLoading]  = useState(true)
   const [modal,    setModal]    = useState(false)
   const [editing,  setEditing]  = useState(null)
@@ -163,10 +148,19 @@ function WorkoutList({ gym, onBack, onSelect }) {
 
   useEffect(() => { load() }, [gym?.id])
   const load = async () => {
-    try { setWorkouts(await workoutService.listByGym(gym.id)) } finally { setLoading(false) }
+    try {
+      const ws = await workoutService.listByGym(gym.id)
+      setWorkouts(ws)
+      const counts = {}
+      await Promise.all(ws.map(async w => {
+        const exs = await exerciseService.listByWorkout(w.id)
+        counts[w.id] = exs.length
+      }))
+      setExCounts(counts)
+    } finally { setLoading(false) }
   }
 
-  const { onDragStart, onDragOver, onDragEnd } = useDragSort(workouts, async (next) => {
+  const { dragIndex, getHandleProps, getItemProps } = useDragSort(workouts, async (next) => {
     setWorkouts(next)
     await Promise.all(next.map((w,i) => workoutService.update(w.id, { sort_order:i })))
   })
@@ -185,6 +179,7 @@ function WorkoutList({ gym, onBack, onSelect }) {
       } else {
         const w = await workoutService.create(userId, gym.id, { ...fields, sort_order:workouts.length })
         setWorkouts(ws => [...ws, w])
+        setExCounts(c => ({ ...c, [w.id]: 0 }))
         toast('Treino criado!')
       }
       setModal(false)
@@ -213,17 +208,18 @@ function WorkoutList({ gym, onBack, onSelect }) {
             {workouts.map((w, i) => (
               <div
                 key={w.id}
-                draggable
-                onDragStart={() => onDragStart(i)}
-                onDragOver={e => onDragOver(e, i)}
-                onDragEnd={onDragEnd}
+                {...getItemProps(i)}
                 onClick={() => onSelect(w)}
+                className={dragIndex === i ? 'drag-ghost' : ''}
                 style={{ background:'var(--card)', borderLeft:`4px solid ${w.color||'var(--accent)'}`, border:`1px solid ${w.color||'var(--accent)'}22`, borderLeftWidth:4, borderLeftColor:w.color||'var(--accent)', borderRadius:'var(--r)', padding:'14px 16px', display:'flex', alignItems:'center', gap:12, cursor:'pointer', userSelect:'none' }}
               >
-                <span style={{ fontSize:12, color:'var(--t3)', cursor:'grab' }}>☰</span>
+                <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:18, color:'var(--t3)', padding:'8px 4px' }}>☰</span>
                 <div style={{ flex:1 }}>
                   <div style={{ fontWeight:700, fontSize:15, color:'var(--t1)' }}>{w.display_name||w.name}</div>
-                  {w.day_label && <div style={{ color:'var(--t3)', fontSize:12, marginTop:2 }}>{w.day_label}</div>}
+                  <div style={{ color:'var(--t3)', fontSize:12, marginTop:2, display:'flex', alignItems:'center', gap:6 }}>
+                    {w.day_label && <span>{w.day_label}</span>}
+                    <span>{w.day_label ? '·' : ''} {exCounts[w.id] ?? 0} exercícios</span>
+                  </div>
                 </div>
                 <button onClick={e => openEdit(w, e)} style={{ color:'var(--t2)', fontSize:18, padding:6, background:'none', border:'none', cursor:'pointer' }}>✏️</button>
                 <button onClick={e => { e.stopPropagation(); setDel(w) }} style={{ color:'var(--red)', fontSize:18, padding:6, background:'none', border:'none', cursor:'pointer' }}>🗑️</button>
@@ -234,33 +230,27 @@ function WorkoutList({ gym, onBack, onSelect }) {
       }
 
       {modal && (
-        <Modal title={editing ? 'Editar Treino' : 'Novo Treino'} onClose={() => setModal(false)}>
-          <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-            <input className="inp" placeholder="Nome curto (ex: Push A)" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} autoFocus />
-            <input className="inp" placeholder="Nome completo (ex: Peito + Tríceps)" value={form.display_name} onChange={e => setForm(f=>({...f,display_name:e.target.value}))} />
-            <div>
-              <p className="label" style={{ marginBottom:8 }}>Dia da semana</p>
-              <button onClick={() => setDayPick(true)}
-                style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', background:'var(--bg3)', border:'1.5px solid var(--b1)', borderRadius:'var(--rsm)', color:form.day_label?'var(--t1)':'var(--t3)', padding:'12px 14px', fontSize:15, minHeight:48 }}>
-                <span>{form.day_label || 'Selecionar dia'}</span>
-                <span style={{ color:'var(--t3)', fontSize:13 }}>▾</span>
-              </button>
-            </div>
-            <div>
-              <p className="label" style={{ marginBottom:8 }}>Cor</p>
-              <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
-                {WORKOUT_COLORS.map(c => (
-                  <button key={c} onClick={() => setForm(f=>({...f,color:c}))}
-                    style={{ width:30, height:30, borderRadius:'50%', background:c, border:`3px solid ${form.color===c?'#fff':'transparent'}`, boxShadow:form.color===c?`0 0 0 2px ${c}`:'none', cursor:'pointer' }} />
-                ))}
-              </div>
-            </div>
-            <div style={{ display:'flex', gap:10 }}>
-              <button className="btn btn-ghost btn-full" onClick={() => setModal(false)}>Cancelar</button>
-              <button className="btn btn-primary btn-full" onClick={save}>Salvar</button>
+        <FormSheet title={editing ? 'Editar Treino' : 'Novo Treino'} onClose={() => setModal(false)} onSave={save} saveLabel={editing ? 'Salvar alterações' : 'Criar treino'}>
+          <input className="inp" placeholder="Nome curto (ex: Push A)" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} autoFocus />
+          <input className="inp" placeholder="Nome completo (ex: Peito + Tríceps)" value={form.display_name} onChange={e => setForm(f=>({...f,display_name:e.target.value}))} />
+          <div>
+            <p className="label" style={{ marginBottom:8 }}>Dia da semana</p>
+            <button onClick={() => setDayPick(true)}
+              style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', background:'var(--bg3)', border:'1.5px solid var(--b1)', borderRadius:'var(--rsm)', color:form.day_label?'var(--t1)':'var(--t3)', padding:'12px 14px', fontSize:15, minHeight:48 }}>
+              <span>{form.day_label || 'Selecionar dia'}</span>
+              <span style={{ color:'var(--t3)', fontSize:13 }}>▾</span>
+            </button>
+          </div>
+          <div>
+            <p className="label" style={{ marginBottom:8 }}>Cor</p>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+              {WORKOUT_COLORS.map(c => (
+                <button key={c} onClick={() => setForm(f=>({...f,color:c}))}
+                  style={{ width:30, height:30, borderRadius:'50%', background:c, border:`3px solid ${form.color===c?'#fff':'transparent'}`, boxShadow:form.color===c?`0 0 0 2px ${c}`:'none', cursor:'pointer' }} />
+              ))}
             </div>
           </div>
-        </Modal>
+        </FormSheet>
       )}
       {del && <Confirm message={`Excluir "${del.name}"?`} onConfirm={remove} onCancel={() => setDel(null)} />}
       {dayPick && (
@@ -293,7 +283,7 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
     } finally { setLoading(false) }
   }
 
-  const { onDragStart, onDragOver, onDragEnd } = useDragSort(exercises, async (next) => {
+  const { dragIndex, getHandleProps, getItemProps } = useDragSort(exercises, async (next) => {
     setExercises(next)
     await exerciseService.reorder(next.map(e => e.id))
   })
@@ -343,14 +333,12 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
             {exercises.map((ex, i) => (
               <div
                 key={ex.id}
-                draggable
-                onDragStart={() => onDragStart(i)}
-                onDragOver={e => onDragOver(e, i)}
-                onDragEnd={onDragEnd}
+                {...getItemProps(i)}
+                className={dragIndex === i ? 'drag-ghost' : ''}
                 style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--r)', overflow:'hidden', userSelect:'none' }}
               >
                 <div style={{ padding:'13px 14px', display:'flex', alignItems:'center', gap:10 }}>
-                  <span style={{ fontSize:12, color:'var(--t3)', cursor:'grab' }}>☰</span>
+                  <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:18, color:'var(--t3)', padding:'8px 4px' }}>☰</span>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontWeight:700, fontSize:15, color:'var(--t1)' }}>{ex.name}</div>
                     <div style={{ color:'var(--t3)', fontSize:12, marginTop:2 }}>{ex.valid_sets} séries válidas</div>
@@ -377,26 +365,20 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
       }
 
       {modal && (
-        <Modal title={editing ? 'Editar Exercício' : 'Novo Exercício'} onClose={() => setModal(false)}>
-          <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-            <input className="inp" placeholder="Nome do exercício" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} autoFocus />
-            <div>
-              <p className="label" style={{ marginBottom:8 }}>Séries válidas</p>
-              <div style={{ display:'flex', gap:8 }}>
-                {[1,2,3,4,5,6].map(n => (
-                  <button key={n} onClick={() => setForm(f=>({...f,valid_sets:n}))}
-                    style={{ width:46, height:46, borderRadius:'var(--rsm)', fontWeight:700, fontSize:15, cursor:'pointer', background:form.valid_sets===n?'var(--accent)':'var(--bg3)', border:`1.5px solid ${form.valid_sets===n?'var(--accent)':'var(--b1)'}`, color:form.valid_sets===n?'#fff':'var(--t2)' }}>
-                    {n}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div style={{ display:'flex', gap:10 }}>
-              <button className="btn btn-ghost btn-full" onClick={() => setModal(false)}>Cancelar</button>
-              <button className="btn btn-primary btn-full" onClick={save}>Salvar</button>
+        <FormSheet title={editing ? 'Editar Exercício' : 'Novo Exercício'} onClose={() => setModal(false)} onSave={save} saveLabel={editing ? 'Salvar alterações' : 'Criar exercício'}>
+          <input className="inp" placeholder="Nome do exercício" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} autoFocus />
+          <div>
+            <p className="label" style={{ marginBottom:8 }}>Séries válidas</p>
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+              {[1,2,3,4,5,6].map(n => (
+                <button key={n} onClick={() => setForm(f=>({...f,valid_sets:n}))}
+                  style={{ width:46, height:46, borderRadius:'var(--rsm)', fontWeight:700, fontSize:15, cursor:'pointer', background:form.valid_sets===n?'var(--accent)':'var(--bg3)', border:`1.5px solid ${form.valid_sets===n?'var(--accent)':'var(--b1)'}`, color:form.valid_sets===n?'#fff':'var(--t2)' }}>
+                  {n}
+                </button>
+              ))}
             </div>
           </div>
-        </Modal>
+        </FormSheet>
       )}
       {del && <Confirm message={`Excluir "${del?.name}"?`} onConfirm={remove} onCancel={() => setDel(null)} />}
     </div>

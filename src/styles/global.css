@@ -302,6 +302,36 @@ a { color: inherit; text-decoration: none; }
   padding-bottom: calc(24px + var(--keyboard-offset, 0px));
 }
 
+/* ── FormSheet (standardized form layout) ─────────────────────── */
+.form-sheet-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px 16px;
+}
+
+.form-sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 20px;
+  padding-bottom: calc(20px + var(--keyboard-offset, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.form-sheet-footer {
+  flex-shrink: 0;
+  display: flex;
+  gap: 10px;
+  padding: 14px 20px calc(14px + var(--safe-bottom));
+  border-top: 1px solid var(--b1);
+  background: var(--bg2);
+}
+
 .modal-handle {
   width: 36px;
   height: 4px;
