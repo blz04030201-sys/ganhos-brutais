@@ -263,30 +263,20 @@ function WorkoutList({ gym, onBack, onSelect }) {
 ───────────────────────────────────────────── */
 function ExList({ workout, gym, onBack, onLog, onHistory }) {
   const { userId, toast } = useApp()
-  const [exercises,   setExercises]   = useState([])
-  const [lastLoads,   setLastLoads]   = useState({}) // exId -> { weight, reps }
-  const [loading,     setLoading]     = useState(true)
-  const [modal,       setModal]       = useState(false)
-  const [editing,     setEditing]     = useState(null)
-  const [del,         setDel]         = useState(null)
-  const [form,        setForm]        = useState({ name:'', valid_sets:3 })
+  const [exercises, setExercises] = useState([])
+  const [lastSets,  setLastSets]  = useState({})
+  const [loading,   setLoading]   = useState(true)
+  const [modal,     setModal]     = useState(false)
+  const [editing,   setEditing]   = useState(null)
+  const [del,       setDel]       = useState(null)
+  const [form,      setForm]      = useState({ name:'', valid_sets:2 })
 
   useEffect(() => { load() }, [workout?.id])
   const load = async () => {
     try {
-      const exs = await exerciseService.listByWorkout(workout.id)
-      setExercises(exs)
-      // Buscar última carga de cada exercício em paralelo
-      const loads = {}
-      await Promise.all(exs.map(async (ex) => {
-        const hist = await logService.listByExercise(ex.id)
-        if (hist.length > 0 && hist[0].sets?.length > 0) {
-          const lastSets = hist[0].sets
-          const best = lastSets.reduce((b, s) => (parseFloat(s.weight)||0) > (parseFloat(b.weight)||0) ? s : b, lastSets[0])
-          loads[ex.id] = { weight: best.weight, reps: best.reps, date: hist[0].log_date, allSets: lastSets }
-        }
-      }))
-      setLastLoads(loads)
+      const data = await exerciseService.listByWorkout(workout.id)
+      setExercises(data)
+      setLastSets(await logService.listLatestByExerciseIds(data.map(e => e.id)))
     } finally { setLoading(false) }
   }
 
@@ -295,13 +285,13 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
     await exerciseService.reorder(next.map(e => e.id))
   })
 
-  const openNew  = () => { setEditing(null); setForm({ name:'', valid_sets:3 }); setModal(true) }
+  const openNew  = () => { setEditing(null); setForm({ name:'', valid_sets:2 }); setModal(true) }
   const openEdit = (ex, e) => { e.stopPropagation(); setEditing(ex); setForm({ name:ex.name, valid_sets:ex.valid_sets }); setModal(true) }
 
   const save = async () => {
     if (!form.name.trim()) return
     try {
-      const fields = { name:form.name, valid_sets:parseInt(form.valid_sets)||3 }
+      const fields = { name:form.name, valid_sets:parseInt(form.valid_sets)||2 }
       if (editing) {
         const u = await exerciseService.update(editing.id, fields)
         setExercises(es => es.map(x => x.id===editing.id ? u : x))
@@ -349,19 +339,17 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
                 <div style={{ padding:'13px 14px', display:'flex', alignItems:'center', gap:10 }}>
                   <span style={{ fontSize:12, color:'var(--t3)', cursor:'grab' }}>☰</span>
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontWeight:700, fontSize:14, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ex.name}</div>
-                    <div style={{ color:'var(--t3)', fontSize:11, marginTop:3, display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-                      <span>{ex.valid_sets} séries</span>
-                      {lastLoads[ex.id] && (
-                        <span style={{ display:'flex', alignItems:'center', gap:4 }}>
-                          <span style={{ color:'var(--b3)' }}>·</span>
-                          <span style={{ color:'var(--accent)', fontWeight:700, fontSize:11 }}>
-                            🏋️ {lastLoads[ex.id].allSets.map(s => `${s.weight}kg×${s.reps}`).join(' · ')}
-                          </span>
-                        </span>
-                      )}
-                    </div>
+                    <div style={{ fontWeight:700, fontSize:15, color:'var(--t1)' }}>{ex.name}</div>
+                    <div style={{ color:'var(--t3)', fontSize:12, marginTop:2 }}>{ex.valid_sets} séries válidas</div>
                   </div>
+                  {lastSets[ex.id] ? (
+                    <div style={{ textAlign:'right', flexShrink:0 }}>
+                      <div style={{ fontWeight:800, fontSize:20, color:'var(--accent)', lineHeight:1.15 }}>{lastSets[ex.id].weight}kg</div>
+                      <div style={{ fontSize:11, color:'var(--t3)', marginTop:1 }}>{lastSets[ex.id].reps} reps</div>
+                    </div>
+                  ) : (
+                    <div style={{ textAlign:'right', flexShrink:0, color:'var(--t3)', fontSize:13, fontWeight:600 }}>Anotar</div>
+                  )}
                   <button onClick={e => openEdit(ex, e)} style={{ color:'var(--t2)', padding:6, fontSize:17, background:'none', border:'none', cursor:'pointer' }}>✏️</button>
                   <button onClick={e => { e.stopPropagation(); setDel(ex) }} style={{ color:'var(--red)', padding:6, fontSize:17, background:'none', border:'none', cursor:'pointer' }}>🗑️</button>
                 </div>
@@ -454,7 +442,7 @@ function LogSession({ ex, gym, workout, onBack, onDone }) {
   return (
     <div className="screen">
       <div className="screen-header">
-        <button onClick={onBack} style={{ color:'var(--accent)', fontWeight:700, background:'none', border:'none', cursor:'pointer' }}>← Voltar</button>
+        <button className="btn-back" onClick={onBack}>← Voltar</button>
         <input type="date" value={date} onChange={e => setDate(e.target.value)}
           style={{ background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t1)', padding:'6px 10px', fontSize:13 }} />
       </div>
@@ -542,7 +530,7 @@ function ExHistory({ ex, onBack }) {
   return (
     <div className="screen">
       <div className="screen-header">
-        <button onClick={onBack} style={{ color:'var(--accent)', fontWeight:700, background:'none', border:'none', cursor:'pointer' }}>← Voltar</button>
+        <button className="btn-back" onClick={onBack}>← Voltar</button>
       </div>
       <div style={{ padding:'0 16px 16px' }}>
         <h2 style={{ fontSize:20, fontWeight:700, color:'var(--t1)', marginBottom:6 }}>{ex.name}</h2>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '../hooks/useAppContext'
-import { mealPlanService, mealService, mealItemService, dietGoalsService } from '../services/diet'
+import { mealPlanService, mealService, mealItemService, dietGoalsService, foodService } from '../services/diet'
 import { profileService } from '../services/profile'
 import { searchFoods, calcMacros, findFood, getFoodUnits, MEAL_PRESETS } from '../utils/foodsDb'
 import { sumMacros, MEAL_ICONS, smartGoals } from '../utils/helpers'
@@ -33,6 +33,7 @@ export default function DietScreen() {
   const [plan,     setPlan]     = useState(null)
   const [meals,    setMeals]    = useState([])
   const [goals,    setGoals]    = useState({ calories:2800, protein:180, carbs:350, fat:80 })
+  const [customFoods, setCustomFoods] = useState([])
   const [loading,  setLoading]  = useState(true)
   const [view,     setView]     = useState('plan') // plan | goals | editMeal
   const [editMeal, setEditMeal] = useState(null)
@@ -41,12 +42,19 @@ export default function DietScreen() {
 
   const load = async () => {
     try {
-      const [g, p] = await Promise.all([dietGoalsService.get(userId), mealPlanService.getActive(userId)])
+      const [g, p, cf] = await Promise.all([
+        dietGoalsService.get(userId),
+        mealPlanService.getActive(userId),
+        foodService.listCustom(userId),
+      ])
       setGoals(g)
+      setCustomFoods(cf)
       if (p) { setPlan(p); setMeals(await mealService.listByPlan(p.id)) }
       else   { const np = await mealPlanService.create(userId); setPlan(np); setMeals([]) }
     } finally { setLoading(false) }
   }
+
+  const reloadCustomFoods = async () => setCustomFoods(await foodService.listCustom(userId))
 
   const reloadMeals = async () => setMeals(await mealService.listByPlan(plan.id))
 
@@ -68,7 +76,7 @@ export default function DietScreen() {
   )
 
   if (view === 'editMeal') return (
-    <MealEditor meal={editMeal} plan={plan} userId={userId}
+    <MealEditor meal={editMeal} plan={plan} userId={userId} customFoods={customFoods} onFoodCreated={reloadCustomFoods}
       onSave={async () => { await reloadMeals(); setView('plan') }}
       onBack={() => setView('plan')} />
   )
@@ -264,7 +272,7 @@ function MealCard({ meal, onEdit, onDelete }) {
 /* ─────────────────────────────────────────────
    MEAL EDITOR (with drag-and-drop items)
 ───────────────────────────────────────────── */
-function MealEditor({ meal, plan, userId, onSave, onBack }) {
+function MealEditor({ meal, plan, userId, customFoods, onFoodCreated, onSave, onBack }) {
   const { toast } = useApp()
   const [name,     setName]     = useState(meal?.name || '')
   const [icon,     setIcon]     = useState(meal?.icon || '🍽️')
@@ -302,7 +310,7 @@ function MealEditor({ meal, plan, userId, onSave, onBack }) {
   return (
     <div className="screen">
       <div className="screen-header">
-        <button onClick={onBack} style={{ color:'var(--accent)', fontWeight:700, background:'none', border:'none', cursor:'pointer' }}>← Voltar</button>
+        <button className="btn-back" onClick={onBack}>← Voltar</button>
         <button className="btn btn-primary" style={{ padding:'8px 16px', fontSize:13 }} onClick={save} disabled={saving}>
           {saving ? '⏳' : '✅ Salvar'}
         </button>
@@ -339,7 +347,7 @@ function MealEditor({ meal, plan, userId, onSave, onBack }) {
                 onDragEnd={onDragEnd}
                 style={{ userSelect:'none' }}
               >
-                <FoodItemRow item={item} onChange={f => updateItem(i, f)} onRemove={() => removeItem(i)} />
+                <FoodItemRow item={item} customFoods={customFoods} onChange={f => updateItem(i, f)} onRemove={() => removeItem(i)} />
               </div>
             ))}
           </div>
@@ -358,7 +366,7 @@ function MealEditor({ meal, plan, userId, onSave, onBack }) {
         </div>
       </div>
 
-      {addFood  && <FoodPicker onClose={() => setAddFood(false)}  onAdd={fi => { setItems(p=>[...p,{...fi}]); setAddFood(false) }} />}
+      {addFood  && <FoodPicker userId={userId} customFoods={customFoods} onFoodCreated={onFoodCreated} onClose={() => setAddFood(false)}  onAdd={fi => { setItems(p=>[...p,{...fi}]); setAddFood(false) }} />}
       {presets  && <PresetPicker onClose={() => setPresets(false)} onSelect={p => { setName(n=>n||p.name); setIcon(p.icon||icon); setItems(p.foods.map(f=>({...f}))); setPresets(false) }} />}
     </div>
   )
@@ -367,8 +375,8 @@ function MealEditor({ meal, plan, userId, onSave, onBack }) {
 /* ─────────────────────────────────────────────
    FOOD ITEM ROW
 ───────────────────────────────────────────── */
-function FoodItemRow({ item, onChange, onRemove }) {
-  const fd    = findFood(item.food_name)
+function FoodItemRow({ item, customFoods = [], onChange, onRemove }) {
+  const fd    = findFood(item.food_name, customFoods)
   const units = fd ? [fd.u,...(fd.alt||[])].filter((v,i,a)=>a.indexOf(v)===i) : [item.unit||'g']
 
   const handle = (amount, unit) => {
@@ -404,142 +412,101 @@ function FoodItemRow({ item, onChange, onRemove }) {
 /* ─────────────────────────────────────────────
    FOOD PICKER
 ───────────────────────────────────────────── */
-function FoodPicker({ onClose, onAdd }) {
-  const { userId, toast } = useApp()
-  const [query,      setQuery]      = useState('')
-  const [amount,     setAmount]     = useState('100')
-  const [unit,       setUnit]       = useState('g')
-  const [picked,     setPicked]     = useState(null)
-  const [creating,   setCreating]   = useState(false)  // modo "novo alimento"
-  const [newFood,    setNewFood]    = useState({ name:'', unit:'g', cal:'', prot:'', carb:'', fat:'' })
-  const [saving,     setSaving]     = useState(false)
-  const [customFoods,setCustomFoods]= useState([])
-
-  useEffect(() => {
-    // Carregar alimentos customizados do usuário
-    import('../services/diet').then(m => {
-      m.foodService.listCustom(userId).then(list => setCustomFoods(list)).catch(() => {})
-    })
-  }, [userId])
+function FoodPicker({ userId, customFoods = [], onFoodCreated, onClose, onAdd }) {
+  const { toast } = useApp()
+  const [query,    setQuery]    = useState('')
+  const [amount,   setAmount]   = useState('100')
+  const [unit,     setUnit]     = useState('g')
+  const [picked,   setPicked]   = useState(null)
+  const [creating, setCreating] = useState(false)
+  const [saving,   setSaving]   = useState(false)
+  const [newFood,  setNewFood]  = useState({ name:'', unit:'g', calories:'', protein:'', carbs:'', fat:'' })
 
   const results = searchFoods(query, customFoods)
-  const units   = picked ? getFoodUnits(picked) : ['g','ml','unid']
+  const units   = picked ? getFoodUnits(picked, customFoods) : ['g','ml','unid']
 
   const selectFood = name => {
-    const fd = findFood(name)
-    const cu = customFoods.find(f => f.name === name)
-    setPicked(name)
-    setUnit(fd?.u || cu?.default_unit || 'g')
-    setAmount((fd?.u || cu?.default_unit) === 'unid' ? '1' : '100')
-    setCreating(false)
+    const fd=findFood(name, customFoods)
+    setPicked(name); setUnit(fd?.u||'g'); setAmount(fd?.u==='unid'?'1':'100')
   }
-
   const confirm = () => {
     if (!picked) return
-    const fd = findFood(picked)
-    const cu = customFoods.find(f => f.name === picked)
-    const a = parseFloat(amount) || 0
-    let m = { cal:0, prot:0, carb:0, fat:0 }
-    if (fd) {
-      const mc = calcMacros(fd, a, unit)
-      m = { cal: mc.cal, prot: mc.prot, carb: mc.carb, fat: mc.fat }
-    } else if (cu) {
-      const factor = unit === 'unid' ? a : a / 100
-      m = {
-        cal:  +(cu.calories  * factor).toFixed(1),
-        prot: +(cu.protein   * factor).toFixed(1),
-        carb: +(cu.carbs     * factor).toFixed(1),
-        fat:  +(cu.fat       * factor).toFixed(1),
-      }
-    }
-    onAdd({ food_name: picked, amount: a, unit, calories: m.cal, protein: m.prot, carbs: m.carb, fat: m.fat })
+    const fd=findFood(picked, customFoods), a=parseFloat(amount)||0
+    const m=fd?calcMacros(fd,a,unit):{cal:0,prot:0,carb:0,fat:0}
+    onAdd({ food_name:picked, amount:a, unit, calories:m.cal, protein:m.prot, carbs:m.carb, fat:m.fat })
   }
 
-  const saveCustomFood = async () => {
-    if (!newFood.name.trim()) return toast('Digite o nome do alimento.')
-    if (!newFood.cal) return toast('Informe as calorias.')
+  const openCreate = () => { setNewFood({ name:query, unit:'g', calories:'', protein:'', carbs:'', fat:'' }); setCreating(true) }
+
+  const saveNewFood = async () => {
+    if (!newFood.name.trim()) return toast('Dê um nome ao alimento.')
     setSaving(true)
     try {
-      const { foodService } = await import('../services/diet')
-      const saved = await foodService.create(userId, {
+      const created = await foodService.create(userId, {
         name: newFood.name.trim(),
-        calories: parseFloat(newFood.cal) || 0,
-        protein:  parseFloat(newFood.prot) || 0,
-        carbs:    parseFloat(newFood.carb) || 0,
-        fat:      parseFloat(newFood.fat) || 0,
+        calories: parseFloat(newFood.calories) || 0,
+        protein:  parseFloat(newFood.protein)  || 0,
+        carbs:    parseFloat(newFood.carbs)    || 0,
+        fat:      parseFloat(newFood.fat)      || 0,
         default_unit: newFood.unit,
       })
-      setCustomFoods(p => [...p, saved])
-      toast('✅ Alimento cadastrado!')
-      // Selecionar automaticamente o alimento recém-criado
-      setPicked(saved.name)
-      setQuery(saved.name)
-      setUnit(saved.default_unit)
-      setAmount(saved.default_unit === 'unid' ? '1' : '100')
+      await onFoodCreated?.()
+      toast('✅ Alimento criado!')
       setCreating(false)
-    } catch(e) { toast('Erro: ' + e.message) }
-    finally { setSaving(false) }
+      setQuery(created.name)
+      setPicked(created.name)
+      setUnit(created.default_unit)
+      setAmount(created.default_unit === 'unid' ? '1' : '100')
+    } catch (e) { toast('Erro: ' + e.message) } finally { setSaving(false) }
   }
 
   if (creating) {
     return (
       <Modal title="Novo Alimento" onClose={() => setCreating(false)}>
-        <p style={{ fontSize:12, color:'var(--t3)', marginBottom:14, lineHeight:1.5 }}>
-          Informe os macros referentes a <b style={{ color:'var(--t2)' }}>100g / 100ml</b> ou <b style={{ color:'var(--t2)' }}>1 unidade</b>.
-        </p>
-        <div style={{ display:'flex', flexDirection:'column', gap:11 }}>
-          <input className="inp" placeholder="Nome do alimento (ex: Salada de quinoa)" value={newFood.name}
-            onChange={e => setNewFood(f=>({...f,name:e.target.value}))} autoFocus />
-
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          <input className="inp" placeholder="Nome do alimento" value={newFood.name}
+            onChange={e => setNewFood(f => ({ ...f, name:e.target.value }))} autoFocus />
           <div>
             <p className="label" style={{ marginBottom:8 }}>Unidade padrão</p>
             <div style={{ display:'flex', gap:8 }}>
-              {['g','ml','unid'].map(u => (
-                <button key={u} onClick={() => setNewFood(f=>({...f,unit:u}))}
-                  style={{ flex:1, padding:'9px', borderRadius:'var(--rsm)', fontWeight:700, fontSize:13, cursor:'pointer',
-                    background: newFood.unit===u ? 'var(--accent)' : 'var(--bg3)',
-                    border: `1.5px solid ${newFood.unit===u ? 'var(--accent)' : 'var(--b1)'}`,
-                    color: newFood.unit===u ? '#fff' : 'var(--t2)' }}>
-                  {u==='g'?'Gramas':u==='ml'?'Mililitros':'Unidade'}
-                </button>
+              {[{ v:'g', l:'Gramas' }, { v:'ml', l:'Mililitros' }, { v:'unid', l:'Unidade' }].map(o => (
+                <button key={o.v} onClick={() => setNewFood(f => ({ ...f, unit:o.v }))}
+                  style={{ flex:1, padding:'9px 4px', fontSize:12, fontWeight:600, borderRadius:'var(--rsm)', cursor:'pointer',
+                    background:newFood.unit===o.v?'var(--accent20)':'var(--bg3)',
+                    border:`1.5px solid ${newFood.unit===o.v?'var(--accent)':'var(--b1)'}`,
+                    color:newFood.unit===o.v?'var(--accent)':'var(--t2)' }}>{o.l}</button>
               ))}
             </div>
             <p style={{ fontSize:11, color:'var(--t3)', marginTop:6 }}>
-              {newFood.unit === 'unid' ? 'Macros por 1 unidade' : `Macros por 100${newFood.unit}`}
+              {newFood.unit === 'unid' ? 'Informe os macros para 1 unidade.' : `Informe os macros para 100${newFood.unit}.`}
             </p>
           </div>
-
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
             <div>
-              <label className="label" style={{ display:'block', marginBottom:5, color:'var(--accent)' }}>Calorias</label>
-              <input className="inp" type="number" inputMode="decimal" placeholder="ex: 180"
-                value={newFood.cal} onChange={e => setNewFood(f=>({...f,cal:e.target.value}))}
-                style={{ borderColor:'rgba(59,130,246,.4)' }} />
+              <label className="label" style={{ display:'block', marginBottom:5 }}>Calorias (kcal)</label>
+              <input className="inp" type="number" inputMode="decimal" value={newFood.calories}
+                onChange={e => setNewFood(f => ({ ...f, calories:e.target.value }))} />
             </div>
             <div>
               <label className="label" style={{ display:'block', marginBottom:5, color:'#EF4444' }}>Proteína (g)</label>
-              <input className="inp" type="number" inputMode="decimal" placeholder="ex: 6"
-                value={newFood.prot} onChange={e => setNewFood(f=>({...f,prot:e.target.value}))}
-                style={{ borderColor:'rgba(239,68,68,.4)' }} />
+              <input className="inp" type="number" inputMode="decimal" value={newFood.protein}
+                onChange={e => setNewFood(f => ({ ...f, protein:e.target.value }))} style={{ borderColor:'#EF444444' }} />
             </div>
             <div>
               <label className="label" style={{ display:'block', marginBottom:5, color:'#F59E0B' }}>Carboidratos (g)</label>
-              <input className="inp" type="number" inputMode="decimal" placeholder="ex: 22"
-                value={newFood.carb} onChange={e => setNewFood(f=>({...f,carb:e.target.value}))}
-                style={{ borderColor:'rgba(245,158,11,.4)' }} />
+              <input className="inp" type="number" inputMode="decimal" value={newFood.carbs}
+                onChange={e => setNewFood(f => ({ ...f, carbs:e.target.value }))} style={{ borderColor:'#F59E0B44' }} />
             </div>
             <div>
               <label className="label" style={{ display:'block', marginBottom:5, color:'#2DD4BF' }}>Gordura (g)</label>
-              <input className="inp" type="number" inputMode="decimal" placeholder="ex: 7"
-                value={newFood.fat} onChange={e => setNewFood(f=>({...f,fat:e.target.value}))}
-                style={{ borderColor:'rgba(45,212,191,.4)' }} />
+              <input className="inp" type="number" inputMode="decimal" value={newFood.fat}
+                onChange={e => setNewFood(f => ({ ...f, fat:e.target.value }))} style={{ borderColor:'#2DD4BF44' }} />
             </div>
           </div>
-
-          <div style={{ display:'flex', gap:10, marginTop:4 }}>
-            <button className="btn btn-ghost btn-full" onClick={() => setCreating(false)}>Voltar</button>
-            <button className="btn btn-primary btn-full" onClick={saveCustomFood} disabled={saving}>
-              {saving ? '⏳ Salvando...' : '✅ Cadastrar'}
+          <div style={{ display:'flex', gap:10 }}>
+            <button className="btn btn-ghost btn-full" onClick={() => setCreating(false)}>Cancelar</button>
+            <button className="btn btn-primary btn-full" onClick={saveNewFood} disabled={saving}>
+              {saving ? '⏳ Salvando...' : '✅ Criar e usar'}
             </button>
           </div>
         </div>
@@ -553,34 +520,23 @@ function FoodPicker({ onClose, onAdd }) {
         onChange={e => { setQuery(e.target.value); setPicked(null) }} autoFocus style={{ marginBottom:10 }} />
       {!picked && query.length >= 1 && (
         <div style={{ maxHeight:200, overflowY:'auto', border:'1px solid var(--b1)', borderRadius:'var(--r)', marginBottom:10 }}>
-          {results.length === 0 ? (
-            <div>
-              <p style={{ padding:'10px 14px', color:'var(--t3)', fontSize:13 }}>Nenhum resultado para "{query}"</p>
-              <button
-                onClick={() => { setNewFood(f=>({...f, name:query})); setCreating(true) }}
-                style={{ width:'100%', padding:'10px 14px', textAlign:'left', fontSize:13, fontWeight:700,
-                  color:'var(--accent)', background:'var(--accent10)', border:'none', borderTop:'1px solid var(--b1)', cursor:'pointer' }}>
-                + Cadastrar "{query}" como novo alimento
-              </button>
-            </div>
-          ) : (
-            <>
-              {results.map(r => (
+          {results.length === 0
+            ? <p style={{ padding:'10px 14px', color:'var(--t3)', fontSize:13 }}>Nenhum resultado para "{query}"</p>
+            : results.map(r => (
                 <button key={r.name} onClick={() => { selectFood(r.name); setQuery(r.name) }}
-                  style={{ width:'100%', padding:'10px 14px', textAlign:'left', fontSize:13, color:'var(--t1)', background:'none', border:'none', borderBottom:'1px solid var(--b2)', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  style={{ width:'100%', padding:'10px 14px', textAlign:'left', fontSize:13, color:'var(--t1)', background:'none', border:'none', borderBottom:'1px solid var(--b2)', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center', gap:8 }}>
                   <span>{r.name}</span>
-                  {r.isCustom && <span style={{ fontSize:10, color:'var(--accent)', fontWeight:700, background:'var(--accent10)', padding:'2px 7px', borderRadius:99 }}>seu</span>}
+                  {r.isCustom && <span style={{ fontSize:9, color:'var(--accent)', fontWeight:700, background:'var(--accent10)', borderRadius:99, padding:'1px 7px', flexShrink:0 }}>seu</span>}
                 </button>
-              ))}
-              <button
-                onClick={() => { setNewFood(f=>({...f, name:query})); setCreating(true) }}
-                style={{ width:'100%', padding:'9px 14px', textAlign:'left', fontSize:12, fontWeight:700,
-                  color:'var(--teal)', background:'rgba(45,212,191,.06)', border:'none', borderTop:'1px solid var(--b1)', cursor:'pointer' }}>
-                + Cadastrar "{query}" como novo alimento
-              </button>
-            </>
-          )}
+              ))
+          }
         </div>
+      )}
+      {!picked && query.length >= 1 && (
+        <button onClick={openCreate}
+          style={{ width:'100%', padding:'10px', marginBottom:14, border:'1.5px dashed var(--b3)', borderRadius:'var(--r)', color:'var(--accent)', fontSize:13, fontWeight:600, background:'none', cursor:'pointer' }}>
+          + Cadastrar "{query}" como novo alimento
+        </button>
       )}
       {picked && (
         <div style={{ display:'flex', gap:10, marginBottom:14 }}>
@@ -660,7 +616,7 @@ function GoalsEditor({ goals, userId, profile, onSave, onBack, refreshProfile })
   return (
     <div className="screen">
       <div className="screen-header">
-        <button onClick={onBack} style={{ color:'var(--accent)', fontWeight:700, background:'none', border:'none', cursor:'pointer' }}>← Voltar</button>
+        <button className="btn-back" onClick={onBack}>← Voltar</button>
         <button className="btn btn-primary" style={{ padding:'8px 16px', fontSize:13 }} onClick={save} disabled={saving}>{saving?'⏳':'Salvar'}</button>
       </div>
       <div style={{ padding:'8px 16px' }}>

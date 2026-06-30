@@ -132,6 +132,25 @@ export const exerciseService = {
 
 // ── LOGS & SETS ──────────────────────────────────────────────
 export const logService = {
+  /** Get the most recent set #1 (carga) for each exercise in a batch — used to show
+   *  the last weight directly on the exercise list, without opening the log screen. */
+  async listLatestByExerciseIds(exerciseIds) {
+    if (!exerciseIds || !exerciseIds.length) return {}
+    const { data, error } = await supabase
+      .from('exercise_logs')
+      .select('exercise_id, log_date, exercise_sets(weight, reps, set_number)')
+      .in('exercise_id', exerciseIds)
+      .order('log_date', { ascending: false })
+    if (error) throw error
+    const map = {}
+    for (const log of data || []) {
+      if (map[log.exercise_id]) continue // already have the newest (rows came ordered desc)
+      const sets = (log.exercise_sets || []).sort((a, b) => a.set_number - b.set_number)
+      if (sets.length) map[log.exercise_id] = { weight: sets[0].weight, reps: sets[0].reps, log_date: log.log_date }
+    }
+    return map
+  },
+
   /** Get all logs for a given exercise, newest first */
   async listByExercise(exerciseId) {
     const { data, error } = await supabase

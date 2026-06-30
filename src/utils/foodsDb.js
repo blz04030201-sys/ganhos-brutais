@@ -120,8 +120,17 @@ export const FOODS_DB = [
   {n:"Shoyu light",c:60,p:8.6,cb:5.3,f:0.1,u:"ml"},
 ]
 
-/** Find food in DB by name */
-export function findFood(name) {
+/** Find food in DB by name. Checks custom foods first (so a custom item with the
+ *  same name as a built-in one wins, matching the order shown in searchFoods). */
+export function findFood(name, customFoods = []) {
+  const custom = customFoods.find(f => f.name === name)
+  if (custom) {
+    return {
+      n: custom.name, c: custom.calories, p: custom.protein,
+      cb: custom.carbs, f: custom.fat, u: custom.default_unit || 'g',
+      isCustom: true, id: custom.id,
+    }
+  }
   return FOODS_DB.find(f => f.n === name) || null
 }
 
@@ -158,8 +167,8 @@ export function buildFoodItem(name, amount, unit) {
 }
 
 /** Get available units for a food */
-export function getFoodUnits(name) {
-  const fd = findFood(name)
+export function getFoodUnits(name, customFoods = []) {
+  const fd = findFood(name, customFoods)
   if (!fd) return ['g', 'ml']
   return [fd.u, ...(fd.alt || [])].filter((v, i, arr) => arr.indexOf(v) === i)
 }
