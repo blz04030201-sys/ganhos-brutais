@@ -13,11 +13,14 @@ import './styles/global.css'
 function useKeyboardSafeArea() {
   useEffect(() => {
     const vv = window.visualViewport
-    if (!vv) return
+    const root = document.documentElement
+    if (!vv) { root.style.setProperty('--vvh', `${window.innerHeight}px`); return }
     const update = () => {
       const offset = window.innerHeight - vv.height - vv.offsetTop
-      document.documentElement.style.setProperty('--keyboard-offset', `${Math.max(0, offset)}px`)
+      root.style.setProperty('--keyboard-offset', `${Math.max(0, offset)}px`)
+      root.style.setProperty('--vvh', `${vv.height}px`)
     }
+    update()
     vv.addEventListener('resize', update)
     vv.addEventListener('scroll', update)
     return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update) }

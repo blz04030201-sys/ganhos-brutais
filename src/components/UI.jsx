@@ -19,16 +19,47 @@ export function Modal({ onClose, children, title }) {
   return (
     <div className="modal-overlay" onPointerDown={e => { if (e.target === e.currentTarget) onClose?.() }}>
       <div className="modal-sheet">
-        <div className="modal-handle" />
-        {title && (
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
-            <span className="title-md">{title}</span>
-            <button onClick={onClose} style={{ color:'var(--t3)', fontSize:22, lineHeight:1 }}>✕</button>
-          </div>
-        )}
-        {children}
+        <div className="modal-sheet-inner">
+          <div className="modal-handle" />
+          {title && (
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+              <span className="title-md">{title}</span>
+              <button onClick={onClose} style={{ color:'var(--t3)', fontSize:22, lineHeight:1, minWidth:36, minHeight:36, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
+            </div>
+          )}
+          {children}
+        </div>
       </div>
     </div>
+  )
+}
+
+// ── Bottom Sheet Picker (e.g. day of week, lists of options) ──
+export function SheetPicker({ title, options, selected, onSelect, onClose }) {
+  return (
+    <Modal title={title} onClose={onClose}>
+      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+        {options.map(opt => {
+          const value = typeof opt === 'string' ? opt : opt.value
+          const label = typeof opt === 'string' ? opt : opt.label
+          const isSel = value === selected
+          return (
+            <button key={value} onClick={() => { onSelect(value); onClose() }}
+              style={{
+                display:'flex', alignItems:'center', justifyContent:'space-between',
+                padding:'14px 16px', borderRadius:'var(--r)', fontSize:15, fontWeight:600,
+                background: isSel ? 'var(--accent20)' : 'var(--bg3)',
+                border: `1.5px solid ${isSel ? 'var(--accent)' : 'var(--b1)'}`,
+                color: isSel ? 'var(--accent)' : 'var(--t1)',
+                minHeight:50, textAlign:'left',
+              }}>
+              <span>{label}</span>
+              {isSel && <span style={{ fontSize:16 }}>✓</span>}
+            </button>
+          )
+        })}
+      </div>
+    </Modal>
   )
 }
 

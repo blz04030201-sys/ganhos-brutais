@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useApp } from '../hooks/useAppContext'
 import { gymService, workoutService, exerciseService, logService } from '../services/workouts'
 import { WORKOUT_COLORS, GYM_ICONS, dateLabel, calcVolume } from '../utils/helpers'
-import { Modal, Confirm, Loader, Empty } from '../components/UI'
+import { Modal, Confirm, Loader, Empty, SheetPicker } from '../components/UI'
 
 export default function WorkoutsScreen() {
   const [view, setView] = useState('gyms')
@@ -158,6 +158,8 @@ function WorkoutList({ gym, onBack, onSelect }) {
   const [editing,  setEditing]  = useState(null)
   const [del,      setDel]      = useState(null)
   const [form,     setForm]     = useState({ name:'', display_name:'', day_label:'', color:'#3B82F6' })
+  const [dayPick,  setDayPick]  = useState(false)
+  const WEEKDAYS = ['Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado','Domingo']
 
   useEffect(() => { load() }, [gym?.id])
   const load = async () => {
@@ -236,7 +238,14 @@ function WorkoutList({ gym, onBack, onSelect }) {
           <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
             <input className="inp" placeholder="Nome curto (ex: Push A)" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} autoFocus />
             <input className="inp" placeholder="Nome completo (ex: Peito + Tríceps)" value={form.display_name} onChange={e => setForm(f=>({...f,display_name:e.target.value}))} />
-            <input className="inp" placeholder="Dia (ex: Segunda)" value={form.day_label} onChange={e => setForm(f=>({...f,day_label:e.target.value}))} />
+            <div>
+              <p className="label" style={{ marginBottom:8 }}>Dia da semana</p>
+              <button onClick={() => setDayPick(true)}
+                style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', background:'var(--bg3)', border:'1.5px solid var(--b1)', borderRadius:'var(--rsm)', color:form.day_label?'var(--t1)':'var(--t3)', padding:'12px 14px', fontSize:15, minHeight:48 }}>
+                <span>{form.day_label || 'Selecionar dia'}</span>
+                <span style={{ color:'var(--t3)', fontSize:13 }}>▾</span>
+              </button>
+            </div>
             <div>
               <p className="label" style={{ marginBottom:8 }}>Cor</p>
               <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
@@ -254,6 +263,10 @@ function WorkoutList({ gym, onBack, onSelect }) {
         </Modal>
       )}
       {del && <Confirm message={`Excluir "${del.name}"?`} onConfirm={remove} onCancel={() => setDel(null)} />}
+      {dayPick && (
+        <SheetPicker title="Dia da semana" options={WEEKDAYS} selected={form.day_label}
+          onSelect={d => setForm(f=>({...f,day_label:d}))} onClose={() => setDayPick(false)} />
+      )}
     </div>
   )
 }
