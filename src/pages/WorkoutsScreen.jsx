@@ -351,28 +351,36 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
                 className={dragIndex === i ? 'drag-ghost' : ''}
                 style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--r)', overflow:'hidden', userSelect:'none' }}
               >
-                <div style={{ padding:'9px 12px', display:'flex', alignItems:'center', gap:8 }}>
-                  <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:16, color:'var(--t3)', padding:'6px 2px' }}>☰</span>
+                <div style={{ padding:'10px 12px 10px 8px', display:'flex', alignItems:'flex-start', gap:8 }}>
+                  <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:15, color:'var(--t4)', padding:'6px 3px', flexShrink:0, marginTop:1 }}>⠿</span>
+                  {/* Left: name */}
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontWeight:700, fontSize:14, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ex.name}</div>
-                    {last ? (
-                      <div style={{ display:'flex', gap:5, flexWrap:'wrap', marginTop:3 }}>
-                        {last.sets.map((s,si) => (
-                          <span key={si} style={{ fontSize:10, fontWeight:700, color:'var(--t2)', background:'var(--bg3)', borderRadius:99, padding:'1px 6px' }}>
-                            {si+1}ª {s.weight}kg×{s.reps}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <div style={{ color:'var(--t3)', fontSize:11, marginTop:2 }}>{ex.valid_sets} séries válidas</div>
-                    )}
+                    <div style={{ fontWeight:700, fontSize:14, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:2 }}>{ex.name}</div>
+                    {!last && <div style={{ color:'var(--t3)', fontSize:11 }}>{ex.valid_sets} séries válidas · sem histórico</div>}
                   </div>
-                  <button onClick={e => openEdit(ex, e)} style={{ color:'var(--t2)', padding:5, fontSize:15, background:'none', border:'none', cursor:'pointer' }}>✏️</button>
-                  <button onClick={e => { e.stopPropagation(); setDel(ex) }} style={{ color:'var(--red)', padding:5, fontSize:15, background:'none', border:'none', cursor:'pointer' }}>🗑️</button>
+                  {/* Right: last sets in blue, compact column */}
+                  {last && (
+                    <div style={{ flexShrink:0, display:'flex', flexDirection:'column', gap:3, alignItems:'flex-end' }}>
+                      {last.sets.map((s,si) => (
+                        <div key={si} style={{ display:'flex', alignItems:'center', gap:5 }}>
+                          <span style={{ fontSize:9, color:'var(--t3)', fontWeight:600, minWidth:14, textAlign:'right' }}>{si+1}ª</span>
+                          <span style={{ fontSize:13, fontWeight:800, color:'var(--accent)', letterSpacing:'-0.3px' }}>
+                            {s.weight}<span style={{ fontSize:9, fontWeight:600, color:'var(--t3)' }}>kg</span>
+                            {' '}<span style={{ fontSize:11, color:'var(--t2)' }}>×</span>{' '}
+                            {s.reps}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ display:'flex', flexDirection:'column', gap:4, flexShrink:0, marginLeft:4 }}>
+                    <button onClick={e => openEdit(ex, e)} style={{ color:'var(--t2)', padding:'3px 5px', fontSize:14, background:'none', border:'none', cursor:'pointer' }}>✏️</button>
+                    <button onClick={e => { e.stopPropagation(); setDel(ex) }} style={{ color:'var(--red)', padding:'3px 5px', fontSize:14, background:'none', border:'none', cursor:'pointer' }}>🗑️</button>
+                  </div>
                 </div>
                 <div style={{ display:'flex', borderTop:'1px solid var(--b2)' }}>
-                  <button onClick={() => onHistory(ex)} style={{ flex:1, padding:'7px', fontSize:11, fontWeight:600, color:'var(--t2)', background:'none', border:'none', borderRight:'1px solid var(--b2)', cursor:'pointer' }}>📊 Histórico</button>
-                  <button onClick={() => onLog(ex)} style={{ flex:1, padding:'7px', fontSize:11, fontWeight:700, color:'var(--accent)', background:'var(--accent10)', border:'none', cursor:'pointer' }}>➕ Registrar</button>
+                  <button onClick={() => onHistory(ex)} style={{ flex:1, padding:'8px', fontSize:11, fontWeight:600, color:'var(--t2)', background:'none', border:'none', borderRight:'1px solid var(--b2)', cursor:'pointer' }}>📊 Histórico</button>
+                  <button onClick={() => onLog(ex)} style={{ flex:1, padding:'8px', fontSize:11, fontWeight:700, color:'var(--accent)', background:'var(--accent10)', border:'none', cursor:'pointer' }}>➕ Registrar</button>
                 </div>
               </div>
             )})}

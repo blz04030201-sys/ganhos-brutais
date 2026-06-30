@@ -12,13 +12,13 @@ import { useDragSort } from '../hooks/useDragSort'
 ───────────────────────────────────────────── */
 export default function DietScreen() {
   const { userId, profile, refreshProfile, toast } = useApp()
-  const [plan,     setPlan]     = useState(null)
-  const [meals,    setMeals]    = useState([])
-  const [goals,    setGoals]    = useState({ calories:2800, protein:180, carbs:350, fat:80 })
+  const [plan,        setPlan]        = useState(null)
+  const [meals,       setMeals]       = useState([])
+  const [goals,       setGoals]       = useState({ calories:2800, protein:180, carbs:350, fat:80 })
   const [customFoods, setCustomFoods] = useState([])
-  const [loading,  setLoading]  = useState(true)
-  const [view,     setView]     = useState('plan') // plan | goals | editMeal
-  const [editMeal, setEditMeal] = useState(null)
+  const [loading,     setLoading]     = useState(true)
+  const [view,        setView]        = useState('plan')
+  const [editMeal,    setEditMeal]    = useState(null)
 
   useEffect(() => { if (userId) load() }, [userId])
 
@@ -42,7 +42,6 @@ export default function DietScreen() {
   }
 
   const reloadCustomFoods = async () => setCustomFoods(await foodService.listCustom(userId))
-
   const reloadMeals = async () => setMeals(await loadMeals(plan.id, customFoods))
 
   const { dragIndex, getHandleProps, getItemProps } = useDragSort(meals, async (next) => {
@@ -72,113 +71,144 @@ export default function DietScreen() {
     <div className="screen">
       {/* Header */}
       <div className="screen-header">
-        <h2 className="title-lg">Dieta</h2>
-        <button onClick={() => setView('goals')} style={{ color:'var(--accent)', fontSize:13, fontWeight:700, background:'none', border:'none', cursor:'pointer' }}>⚙️ Metas</button>
+        <div>
+          <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.12em', color:'var(--accent)', textTransform:'uppercase', marginBottom:2 }}>Nutrição</div>
+          <h2 style={{ fontSize:24, fontWeight:800, color:'var(--t1)', lineHeight:1 }}>Minha Dieta</h2>
+        </div>
+        <button onClick={() => setView('goals')}
+          style={{ display:'flex', alignItems:'center', gap:6, background:'var(--accent10)', border:'1px solid var(--accent20)', borderRadius:'var(--rsm)', padding:'8px 12px', color:'var(--accent)', fontSize:12, fontWeight:700 }}>
+          ⚙️ Metas
+        </button>
       </div>
 
       {/* Macro summary */}
-      <MacroSummary totals={totals} goals={goals} weight={weight} pct={pct} />
+      <MacroSummary totals={totals} goals={goals} weight={weight} pct={pct} onGoals={() => setView('goals')} />
 
       {/* Meals */}
-      <SectionHeader title="Refeições" action={() => { setEditMeal(null); setView('editMeal') }} actionLabel="+ Nova" />
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 16px 10px' }}>
+        <div>
+          <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'var(--t3)', textTransform:'uppercase' }}>Refeições</div>
+          {meals.length > 0 && <div style={{ fontSize:12, color:'var(--t3)', marginTop:2 }}>{meals.length} refeição{meals.length!==1?'es':''}</div>}
+        </div>
+        <button onClick={() => { setEditMeal(null); setView('editMeal') }}
+          style={{ display:'flex', alignItems:'center', gap:5, background:'var(--accent)', borderRadius:'var(--rsm)', padding:'8px 14px', color:'#fff', fontSize:12, fontWeight:700, border:'none' }}>
+          + Nova Refeição
+        </button>
+      </div>
 
       {meals.length === 0
         ? <Empty icon="🥗" title="Nenhuma refeição" description="Adicione refeições para montar sua dieta."
             action={() => { setEditMeal(null); setView('editMeal') }} actionLabel="+ Adicionar" />
         : (
-          <div style={{ padding:'0 16px' }}>
-            <p style={{ fontSize:11, color:'var(--t3)', marginBottom:8 }}>☰ Arraste para reordenar</p>
-            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-              {meals.map((m, i) => (
-                <div key={m.id} {...getItemProps(i)}>
-                  <MealCard
-                    meal={m}
-                    handleProps={getHandleProps(i)}
-                    dragging={dragIndex === i}
-                    onEdit={() => { setEditMeal(m); setView('editMeal') }}
-                    onDelete={async () => { await mealService.delete(m.id); await reloadMeals(); toast('Refeição removida.') }}
-                  />
-                </div>
-              ))}
-            </div>
+          <div style={{ padding:'0 14px', display:'flex', flexDirection:'column', gap:12 }}>
+            {meals.map((m, i) => (
+              <div key={m.id} {...getItemProps(i)}>
+                <MealCard
+                  meal={m}
+                  handleProps={getHandleProps(i)}
+                  dragging={dragIndex === i}
+                  onEdit={() => { setEditMeal(m); setView('editMeal') }}
+                  onDelete={async () => { await mealService.delete(m.id); await reloadMeals(); toast('Refeição removida.') }}
+                />
+              </div>
+            ))}
           </div>
         )
       }
-      <div style={{ height:16 }} />
+      <div style={{ height:24 }} />
     </div>
   )
 }
 
 /* ─────────────────────────────────────────────
-   MACRO SUMMARY
+   MACRO SUMMARY — redesigned premium card
 ───────────────────────────────────────────── */
-function MacroSummary({ totals, goals, weight, pct }) {
-  const protCal = totals.prot*4, carbCal = totals.carb*4, fatCal = totals.fat*9
+function MacroSummary({ totals, goals, weight, pct, onGoals }) {
+  const cal = totals.cal || 0
+  const kcalPct = pct(cal, goals.calories)
+  const kcalLeft = goals.calories - cal
+  const protCal = (totals.prot||0)*4, carbCal = (totals.carb||0)*4, fatCal = (totals.fat||0)*9
   const macTotal = protCal+carbCal+fatCal || 1
 
-  // SVG pie
-  const buildPie = (vals) => {
+  const macros = [
+    { label:'Proteína',    key:'prot', val:totals.prot||0, goal:goals.protein, color:'#EF4444', cal:protCal, min:1.6, max:2.2 },
+    { label:'Carboidrato', key:'carb', val:totals.carb||0, goal:goals.carbs,   color:'#F59E0B', cal:carbCal, min:3,   max:6   },
+    { label:'Gordura',     key:'fat',  val:totals.fat||0,  goal:goals.fat,     color:'#2DD4BF', cal:fatCal,  min:0.8, max:1.2 },
+  ]
+
+  // Donut SVG segments
+  const buildDonut = (vals, R=42, stroke=9) => {
     const total = vals.reduce((a,b)=>a+b,0); if(!total) return []
-    let a = -Math.PI/2
-    return vals.map(v => {
-      const ang=v/total*2*Math.PI, ea=a+ang, r=44
-      const x1=50+r*Math.cos(a),y1=50+r*Math.sin(a),x2=50+r*Math.cos(ea),y2=50+r*Math.sin(ea)
-      const d=`M50,50 L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r},0,${ang>Math.PI?1:0},1,${x2.toFixed(1)},${y2.toFixed(1)} Z`
-      a=ea; return d
+    const circ = 2*Math.PI*R; let off = 0
+    return vals.map((v,i) => {
+      const dash = v/total*circ
+      const seg = { dash, gap:circ-dash, offset:off, color:macros[i].color }
+      off += dash; return seg
     })
   }
-  const pies   = buildPie([protCal, carbCal, fatCal])
-  const colors = ['#EF4444','#F59E0B','#2DD4BF']
-  const macros = [
-    { label:'Proteína',    val:totals.prot||0, goal:goals.protein, color:'#EF4444', cal:protCal, min:1.6, max:2.2 },
-    { label:'Carboidrato', val:totals.carb||0, goal:goals.carbs,   color:'#F59E0B', cal:carbCal, min:3,   max:6   },
-    { label:'Gordura',     val:totals.fat||0,  goal:goals.fat,     color:'#2DD4BF', cal:fatCal,  min:0.8, max:1.2 },
-  ]
-  const kcalPct = pct(totals.cal||0, goals.calories)
+  const segs = buildDonut([protCal, carbCal, fatCal])
+  const R=42, CX=50, CY=50, circ=2*Math.PI*R
 
   return (
-    <div style={{ margin:'0 16px 14px', background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--r)', padding:16 }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
-        <div>
-          <span style={{ fontSize:26, fontWeight:800, color:'var(--t1)' }}>{Math.round(totals.cal||0)}</span>
-          <span style={{ fontSize:12, color:'var(--t3)', marginLeft:4 }}>kcal</span>
-          <div style={{ fontSize:11, color:'var(--t3)', marginTop:2 }}>Meta: {goals.calories} · {kcalPct}%</div>
-        </div>
-        {weight && <div style={{ textAlign:'right' }}>
-          <div style={{ fontSize:14, fontWeight:700, color:'var(--accent)' }}>{weight}kg</div>
-          <div style={{ fontSize:10, color:'var(--t3)' }}>seu peso</div>
-        </div>}
-      </div>
-      <div style={{ height:6, background:'var(--b1)', borderRadius:99, marginBottom:16, overflow:'hidden' }}>
-        <div style={{ height:'100%', width:`${kcalPct}%`, background:'var(--accent)', borderRadius:99, transition:'width .4s' }} />
-      </div>
+    <div style={{ margin:'0 14px 6px' }}>
+      {/* Main kcal card */}
+      <div style={{ background:'linear-gradient(135deg, #0c0c1c 0%, #0e0e20 100%)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'18px 20px 16px', marginBottom:10, position:'relative', overflow:'hidden' }}>
+        {/* Accent glow */}
+        <div style={{ position:'absolute', top:-40, right:-40, width:120, height:120, borderRadius:'50%', background:'radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%)', pointerEvents:'none' }} />
 
-      <div style={{ display:'flex', gap:14, alignItems:'center' }}>
-        <svg width="90" height="90" viewBox="0 0 100 100" style={{ flexShrink:0 }}>
-          {pies.length ? pies.map((d,i) => <path key={i} d={d} fill={colors[i]} />) : <circle cx="50" cy="50" r="44" fill="var(--b1)" />}
-          <circle cx="50" cy="50" r="30" fill="var(--card)" />
-          <text x="50" y="47" textAnchor="middle" fill="white" fontSize="11" fontWeight="700">{Math.round(totals.cal||0)}</text>
-          <text x="50" y="58" textAnchor="middle" fill="#4B5563" fontSize="8">kcal</text>
-        </svg>
-        <div style={{ flex:1, display:'flex', flexDirection:'column', gap:9 }}>
+        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:14 }}>
+          <div>
+            <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'var(--t3)', textTransform:'uppercase', marginBottom:4 }}>Consumido hoje</div>
+            <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
+              <span style={{ fontSize:42, fontWeight:900, color:'var(--t1)', lineHeight:1, letterSpacing:'-1px' }}>{Math.round(cal)}</span>
+              <span style={{ fontSize:14, color:'var(--t3)', fontWeight:600 }}>kcal</span>
+            </div>
+            <div style={{ fontSize:12, color: kcalPct >= 100 ? '#10B981' : kcalLeft > 0 ? 'var(--t3)' : 'var(--orange)', marginTop:4 }}>
+              {kcalPct >= 100 ? '✓ Meta atingida' : `Faltam ${Math.round(Math.max(0,kcalLeft))} kcal`}
+            </div>
+          </div>
+
+          {/* Donut */}
+          <div style={{ position:'relative', flexShrink:0 }}>
+            <svg width="84" height="84" viewBox="0 0 100 100">
+              <circle cx={CX} cy={CY} r={R} fill="none" stroke="var(--b1)" strokeWidth="9" />
+              {segs.length ? segs.map((s,i) => (
+                <circle key={i} cx={CX} cy={CY} r={R} fill="none"
+                  stroke={s.color} strokeWidth="9"
+                  strokeDasharray={`${s.dash.toFixed(2)} ${s.gap.toFixed(2)}`}
+                  strokeDashoffset={-s.offset + circ/4}
+                  style={{ transition:'stroke-dasharray .5s' }} />
+              )) : null}
+              <text x={CX} y={CY-4} textAnchor="middle" fill="white" fontSize="13" fontWeight="800">{kcalPct}%</text>
+              <text x={CX} y={CY+9} textAnchor="middle" fill="#4B5563" fontSize="8">meta</text>
+            </svg>
+          </div>
+        </div>
+
+        {/* Kcal progress bar */}
+        <div style={{ height:5, background:'var(--b1)', borderRadius:99, overflow:'hidden', marginBottom:16 }}>
+          <div style={{ height:'100%', width:`${kcalPct}%`, background:`linear-gradient(90deg, #3B82F6, ${kcalPct>=100?'#10B981':'#818CF8'})`, borderRadius:99, transition:'width .5s' }} />
+        </div>
+
+        {/* Macro bars */}
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
           {macros.map(m => {
             const p = pct(m.val, m.goal)
-            const gk = weight ? m.val/weight : null
             return (
               <div key={m.label}>
-                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-                    <div style={{ width:7, height:7, borderRadius:'50%', background:m.color, flexShrink:0 }} />
-                    <span style={{ fontSize:10, fontWeight:700, color:'var(--t2)' }}>{m.label}</span>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                    <div style={{ width:8, height:8, borderRadius:'50%', background:m.color }} />
+                    <span style={{ fontSize:12, fontWeight:600, color:'var(--t2)' }}>{m.label}</span>
                   </div>
-                  <span style={{ fontSize:11, fontWeight:800, color:'var(--t1)' }}>{Math.round(m.val)}g <span style={{ color:'var(--t3)', fontWeight:400, fontSize:9 }}>/{m.goal}g</span></span>
+                  <div style={{ display:'flex', alignItems:'baseline', gap:3 }}>
+                    <span style={{ fontSize:13, fontWeight:800, color:'var(--t1)' }}>{Math.round(m.val)}g</span>
+                    <span style={{ fontSize:10, color:'var(--t3)' }}>/ {m.goal}g</span>
+                    <span style={{ fontSize:10, color:'var(--t3)', marginLeft:4 }}>{p}%</span>
+                  </div>
                 </div>
                 <div style={{ height:5, background:'var(--b1)', borderRadius:99, overflow:'hidden' }}>
-                  <div style={{ height:'100%', width:`${p}%`, background:m.color, borderRadius:99, transition:'width .4s' }} />
-                </div>
-                <div style={{ display:'flex', justifyContent:'space-between', marginTop:3 }}>
-                  {gk !== null && <span style={{ fontSize:9, color:'var(--t3)' }}><span style={{ color:m.color, fontWeight:700 }}>{gk.toFixed(2)}</span>g/kg</span>}
-                  <span style={{ fontSize:9, color:'var(--t3)', marginLeft:'auto' }}>{Math.round(m.cal/macTotal*100)}% kcal</span>
+                  <div style={{ height:'100%', width:`${p}%`, background:m.color, borderRadius:99, transition:'width .5s', opacity:0.9 }} />
                 </div>
               </div>
             )
@@ -186,119 +216,191 @@ function MacroSummary({ totals, goals, weight, pct }) {
         </div>
       </div>
 
-      {weight && (
-        <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid var(--b1)', display:'flex', gap:6 }}>
-          {macros.map(m => {
-            const gk = m.val/weight, ok=gk>=m.min&&gk<=m.max, low=gk<m.min
-            return (
-              <div key={m.label} style={{ flex:1, background:'var(--bg3)', borderRadius:'var(--rsm)', padding:'8px 6px', border:`1px solid ${ok?m.color+'44':'var(--b1)'}`, textAlign:'center' }}>
-                <div style={{ fontSize:9, color:'var(--t3)', fontWeight:700, marginBottom:3 }}>{m.label.slice(0,4)}</div>
-                <div style={{ fontSize:13, fontWeight:800, color:ok?m.color:low?'var(--orange)':'var(--red)' }}>{gk.toFixed(2)}</div>
-                <div style={{ fontSize:8, color:'var(--t3)' }}>{m.min}–{m.max}</div>
-                <div style={{ fontSize:8, fontWeight:700, marginTop:2, color:ok?'var(--green)':low?'var(--orange)':'var(--red)' }}>{ok?'✓ Ideal':low?'↑ Baixo':'↓ Alto'}</div>
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {/* Macro chips row */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8 }}>
+        {macros.map(m => {
+          const gk = weight ? m.val/weight : null
+          const ok = gk!==null && gk>=m.min && gk<=m.max
+          const low = gk!==null && gk<m.min
+          return (
+            <div key={m.label} style={{
+              background:'var(--card)', borderRadius:'var(--r)', padding:'12px 10px',
+              border:`1px solid ${gk!==null&&ok ? m.color+'44' : 'var(--b1)'}`,
+              textAlign:'center', position:'relative', overflow:'hidden'
+            }}>
+              {gk!==null && <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:ok?m.color:low?'var(--orange)':'var(--red)' }} />}
+              <div style={{ fontSize:18, fontWeight:900, color:m.color, letterSpacing:'-0.5px' }}>{Math.round(m.val)}<span style={{ fontSize:10, fontWeight:600, color:'var(--t3)' }}>g</span></div>
+              <div style={{ fontSize:10, color:'var(--t3)', marginTop:2, fontWeight:600 }}>{m.label}</div>
+              {gk !== null && (
+                <div style={{ fontSize:10, fontWeight:700, marginTop:4, color:ok?m.color:low?'var(--orange)':'var(--red)' }}>
+                  {gk.toFixed(2)}g/kg
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
 
 /* ─────────────────────────────────────────────
-   MEAL CARD
+   MEAL CARD — premium hierarchical layout
 ───────────────────────────────────────────── */
 function MealCard({ meal, onEdit, onDelete, handleProps, dragging }) {
   const [open, setOpen] = useState(false)
   const [del,  setDel]  = useState(false)
-  const items  = meal.items || []
-  const totals = sumMacros(items)
+  const items   = meal.items || []
+  const totals  = sumMacros(items)
+  const groups  = groupItemsBySubName(items)
+  const hasOpts = groups.some(g => g.subName)
 
   return (
-    <div className={dragging ? 'drag-ghost' : ''} style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--r)', overflow:'hidden' }}>
-      <div style={{ width:'100%', padding:'13px 14px', display:'flex', alignItems:'center', gap:10 }}>
-        <span {...handleProps} style={{ ...handleProps?.style, fontSize:18, color:'var(--t3)', padding:'8px 4px' }}>☰</span>
+    <div className={dragging ? 'drag-ghost' : ''} style={{
+      background:'var(--card)', borderRadius:'var(--rlg)',
+      border:`1px solid ${open ? 'var(--accent)33' : 'var(--b1)'}`,
+      overflow:'hidden',
+      boxShadow: open ? '0 4px 24px rgba(59,130,246,0.08)' : 'none',
+      transition:'border-color .2s, box-shadow .2s'
+    }}>
+      {/* Meal header */}
+      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'14px 14px 14px 10px' }}>
+        <span {...handleProps} style={{ ...handleProps?.style, fontSize:15, color:'var(--t4)', padding:'6px 3px', flexShrink:0 }}>⠿</span>
         <button onClick={() => setOpen(o=>!o)}
-          style={{ flex:1, display:'flex', alignItems:'center', gap:10, background:'none', border:'none', cursor:'pointer', textAlign:'left', padding:0 }}>
-          <span style={{ fontSize:22 }}>{meal.icon}</span>
-          <div style={{ flex:1 }}>
-            <div style={{ fontWeight:700, fontSize:14, color:'var(--t1)' }}>{meal.name}</div>
-            <div style={{ color:'var(--t3)', fontSize:11, marginTop:2 }}>
-              <span style={{ color:'var(--accent)', fontWeight:700 }}>{Math.round(totals.cal)} kcal</span>
-              {' · '}P:{Math.round(totals.prot)}g · C:{Math.round(totals.carb)}g · G:{Math.round(totals.fat)}g
+          style={{ flex:1, display:'flex', alignItems:'center', gap:12, background:'none', border:'none', cursor:'pointer', textAlign:'left', padding:0, minWidth:0 }}>
+          {/* Icon circle */}
+          <div style={{ width:42, height:42, borderRadius:12, background:'var(--accent10)', border:'1px solid var(--accent20)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:20 }}>
+            {meal.icon}
+          </div>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontWeight:800, fontSize:15, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{meal.name}</div>
+            <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:3 }}>
+              <span style={{ fontSize:12, fontWeight:700, color:'var(--accent)' }}>{Math.round(totals.cal)} kcal</span>
+              <span style={{ fontSize:11, color:'var(--b3)' }}>·</span>
+              <span style={{ fontSize:11, color:'var(--t3)' }}>P:{Math.round(totals.prot)}g · C:{Math.round(totals.carb)}g · G:{Math.round(totals.fat)}g</span>
             </div>
           </div>
-          <span style={{ color:'var(--t3)', fontSize:16, transform:open?'rotate(180deg)':'none', transition:'.2s' }}>⌄</span>
+          <span style={{ color:'var(--t3)', fontSize:14, transform:open?'rotate(180deg)':'none', transition:'.2s', flexShrink:0 }}>⌄</span>
         </button>
       </div>
 
+      {/* Expanded content */}
       {open && (
-        <div style={{ borderTop:'1px solid var(--b1)', background:'var(--bg3)', padding:'10px 12px', display:'flex', flexDirection:'column', gap:8 }}>
-          {items.length === 0
-            ? <p style={{ padding:'4px 2px', color:'var(--t3)', fontSize:12 }}>Nenhum alimento</p>
-            : groupItemsBySubName(items).map((group, gi) => {
-                const groupTotals = sumMacros(group.entries.map(e => e.item))
-                // Grouped (a saved "opção"/preset) → its own nested card, clearly a
-                // child of this meal. Ungrouped → a plain bullet list, direct children.
+        <div style={{ borderTop:'1px solid var(--b2)' }}>
+          {items.length === 0 ? (
+            <div style={{ padding:'16px 14px', color:'var(--t3)', fontSize:13 }}>Nenhum alimento cadastrado</div>
+          ) : (
+            <div style={{ padding:'12px 14px', display:'flex', flexDirection:'column', gap:10 }}>
+              {groups.map((group, gi) => {
+                const gTotals = sumMacros(group.entries.map(e => e.item))
                 if (!group.subName) {
+                  // Plain ungrouped items
                   return (
-                    <div key={gi} style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                      {group.entries.map(({ item }) => (
-                        <div key={item.id} style={{ display:'flex', justifyContent:'space-between', gap:8, fontSize:12.5 }}>
-                          <span style={{ color:'var(--t1)' }}>• {item.food_name} <span style={{ color:'var(--t3)' }}>— {item.amount}{item.unit}</span></span>
-                          <span style={{ color:'var(--t3)', flexShrink:0 }}>{Math.round(item.calories||0)} kcal</span>
-                        </div>
-                      ))}
+                    <div key={gi} style={{ background:'var(--bg3)', borderRadius:'var(--r)', padding:'10px 12px', border:'1px solid var(--b2)' }}>
+                      <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                        {group.entries.map(({ item }) => (
+                          <div key={item.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8 }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:7, minWidth:0 }}>
+                              <div style={{ width:5, height:5, borderRadius:'50%', background:'var(--t3)', flexShrink:0 }} />
+                              <span style={{ fontSize:13, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.food_name}</span>
+                              <span style={{ fontSize:11, color:'var(--t3)', flexShrink:0 }}>{item.amount}{item.unit}</span>
+                            </div>
+                            <span style={{ fontSize:11, fontWeight:700, color:'var(--t2)', flexShrink:0 }}>{Math.round(item.calories||0)} kcal</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display:'flex', gap:10, marginTop:10, paddingTop:8, borderTop:'1px solid var(--b2)', fontSize:11 }}>
+                        <span style={{ color:'var(--accent)', fontWeight:700 }}>🔥 {Math.round(gTotals.cal)} kcal</span>
+                        <span style={{ color:'#EF4444' }}>P:{Math.round(gTotals.prot)}g</span>
+                        <span style={{ color:'#F59E0B' }}>C:{Math.round(gTotals.carb)}g</span>
+                        <span style={{ color:'#2DD4BF' }}>G:{Math.round(gTotals.fat)}g</span>
+                      </div>
                     </div>
                   )
                 }
+
+                // Grouped option/substitution — prominent nested card
                 return (
-                  <div key={gi} style={{ background:'var(--card)', border:'1px solid var(--b1)', borderLeft:'3px solid var(--accent)', borderRadius:'var(--rsm)', padding:'9px 11px', display:'flex', flexDirection:'column', gap:6 }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                      <span style={{ fontSize:14 }}>{group.subIcon || '🍱'}</span>
-                      <span style={{ fontSize:12.5, fontWeight:700, color:'var(--accent)' }}>{group.subName}</span>
-                      <span style={{ fontSize:10, color:'var(--t3)', marginLeft:'auto' }}>opção</span>
+                  <div key={gi} style={{
+                    background:'var(--bg2)', borderRadius:'var(--r)',
+                    border:'1px solid var(--b1)', borderLeft:'3px solid var(--accent)',
+                    overflow:'hidden'
+                  }}>
+                    {/* Option header */}
+                    <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderBottom:'1px solid var(--b2)', background:'var(--bg3)' }}>
+                      {group.subIcon && <span style={{ fontSize:18 }}>{group.subIcon}</span>}
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:13, fontWeight:700, color:'var(--t1)' }}>{group.subName}</div>
+                        <div style={{ fontSize:10, color:'var(--accent)', fontWeight:600, marginTop:1 }}>substituição / opção</div>
+                      </div>
+                      <div style={{ textAlign:'right' }}>
+                        <div style={{ fontSize:13, fontWeight:800, color:'var(--accent)' }}>{Math.round(gTotals.cal)}</div>
+                        <div style={{ fontSize:9, color:'var(--t3)' }}>kcal</div>
+                      </div>
                     </div>
-                    <div style={{ paddingLeft:14, borderLeft:'2px dashed var(--b2)', display:'flex', flexDirection:'column', gap:5 }}>
+
+                    {/* Ingredients */}
+                    <div style={{ padding:'10px 12px', display:'flex', flexDirection:'column', gap:6 }}>
                       {group.entries.map(({ item }) => (
-                        <div key={item.id} style={{ display:'flex', justifyContent:'space-between', gap:8, fontSize:12 }}>
-                          <span style={{ color:'var(--t2)' }}>• {item.food_name} <span style={{ color:'var(--t3)' }}>— {item.amount}{item.unit}</span></span>
-                          <span style={{ color:'var(--t3)', flexShrink:0 }}>{Math.round(item.calories||0)} kcal</span>
+                        <div key={item.id} style={{ display:'flex', alignItems:'center', gap:7 }}>
+                          <div style={{ width:4, height:4, borderRadius:'50%', background:'var(--accent)', flexShrink:0, opacity:0.6 }} />
+                          <span style={{ fontSize:12.5, color:'var(--t2)', flex:1 }}>{item.food_name}</span>
+                          <span style={{ fontSize:11, color:'var(--t3)', flexShrink:0 }}>{item.amount}{item.unit}</span>
+                          <span style={{ fontSize:11, color:'var(--t3)', flexShrink:0, marginLeft:4 }}>{Math.round(item.calories||0)} kcal</span>
                         </div>
                       ))}
                     </div>
-                    <div style={{ display:'flex', gap:10, fontSize:10.5, color:'var(--t3)', paddingTop:5, borderTop:'1px solid var(--b2)' }}>
-                      <span>🔥 <b style={{ color:'var(--t1)' }}>{Math.round(groupTotals.cal)}</b> kcal</span>
-                      <span>P:<b style={{ color:'var(--t1)' }}>{Math.round(groupTotals.prot)}g</b></span>
-                      <span>C:<b style={{ color:'var(--t1)' }}>{Math.round(groupTotals.carb)}g</b></span>
-                      <span>G:<b style={{ color:'var(--t1)' }}>{Math.round(groupTotals.fat)}g</b></span>
+
+                    {/* Macro footer */}
+                    <div style={{ display:'flex', gap:0, borderTop:'1px solid var(--b2)', background:'var(--bg3)' }}>
+                      {[
+                        { l:'P', v:gTotals.prot, c:'#EF4444' },
+                        { l:'C', v:gTotals.carb, c:'#F59E0B' },
+                        { l:'G', v:gTotals.fat,  c:'#2DD4BF' },
+                      ].map(({ l, v, c }, i) => (
+                        <div key={l} style={{ flex:1, padding:'8px 0', textAlign:'center', borderRight:i<2?'1px solid var(--b2)':'none' }}>
+                          <div style={{ fontSize:13, fontWeight:800, color:c }}>{Math.round(v)}g</div>
+                          <div style={{ fontSize:9, color:'var(--t3)' }}>{l}</div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )
-              })
-          }
-          <div style={{ display:'flex', margin:'4px -12px -10px', borderTop:'1px solid var(--b1)' }}>
-            <button onClick={() => setDel(true)} style={{ flex:1, padding:'9px', fontSize:12, color:'var(--red)', background:'none', border:'none', borderRight:'1px solid var(--b1)', cursor:'pointer' }}>🗑️ Excluir</button>
-            <button onClick={onEdit} style={{ flex:1, padding:'9px', fontSize:12, fontWeight:700, color:'var(--accent)', background:'var(--accent10)', border:'none', cursor:'pointer' }}>✏️ Editar</button>
+              })}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div style={{ display:'flex', borderTop:'1px solid var(--b1)' }}>
+            <button onClick={() => setDel(true)}
+              style={{ flex:1, padding:'11px', fontSize:12, color:'var(--red)', background:'none', border:'none', borderRight:'1px solid var(--b1)', cursor:'pointer', fontWeight:600 }}>
+              🗑️ Excluir
+            </button>
+            <button onClick={onEdit}
+              style={{ flex:1, padding:'11px', fontSize:12, fontWeight:700, color:'var(--accent)', background:'var(--accent10)', border:'none', cursor:'pointer' }}>
+              ✏️ Editar refeição
+            </button>
           </div>
         </div>
       )}
+
       {del && <Confirm message={`Excluir "${meal.name}"?`} onConfirm={onDelete} onCancel={() => setDel(false)} />}
     </div>
   )
 }
 
 /* ─────────────────────────────────────────────
-   MEAL EDITOR (with drag-and-drop items)
+   MEAL EDITOR
 ───────────────────────────────────────────── */
 function MealEditor({ meal, plan, userId, customFoods, onFoodCreated, onSave, onBack }) {
   const { toast } = useApp()
-  const [name,     setName]     = useState(meal?.name || '')
-  const [icon,     setIcon]     = useState(meal?.icon || '🍽️')
-  const [items,    setItems]    = useState(() => recalcItems(meal?.items || [], customFoods))
-  const [saving,   setSaving]   = useState(false)
-  const [addFood,  setAddFood]  = useState(false)
-  const [presets,  setPresets]  = useState(false)
+  const [name,    setName]    = useState(meal?.name || '')
+  const [icon,    setIcon]    = useState(meal?.icon || '🍽️')
+  const [items,   setItems]   = useState(() => recalcItems(meal?.items || [], customFoods))
+  const [saving,  setSaving]  = useState(false)
+  const [addFood, setAddFood] = useState(false)
+  const [presets, setPresets] = useState(false)
+  const [copyFrom,setCopyFrom]= useState(null)
 
   const { dragIndex, getHandleProps, getItemProps } = useDragSort(items, setItems)
   const totals = sumMacros(items)
@@ -327,49 +429,57 @@ function MealEditor({ meal, plan, userId, customFoods, onFoodCreated, onSave, on
   const removeItem = idx => setItems(p => p.filter((_,i)=>i!==idx))
   const updateItem = (idx, fields) => setItems(p => p.map((x,i)=>i===idx?{...x,...fields}:x))
 
+  const groups = groupItemsBySubName(items)
+
   return (
     <div className="screen">
       <div className="screen-header">
         <button className="btn-back" onClick={onBack}>← Voltar</button>
-        <button className="btn btn-primary" style={{ padding:'8px 16px', fontSize:13 }} onClick={save} disabled={saving}>
+        <button className="btn btn-primary" style={{ padding:'8px 18px', fontSize:13 }} onClick={save} disabled={saving}>
           {saving ? '⏳' : '✅ Salvar'}
         </button>
       </div>
 
       <div style={{ padding:'0 16px 16px' }}>
         {/* Name + icon */}
-        <div style={{ display:'flex', gap:10, marginBottom:14 }}>
+        <div style={{ display:'flex', gap:10, marginBottom:16 }}>
           <select value={icon} onChange={e => setIcon(e.target.value)}
-            style={{ background:'var(--bg3)', border:'1.5px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t1)', padding:'10px', fontSize:22, width:56 }}>
+            style={{ background:'var(--bg3)', border:'1.5px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t1)', padding:'10px', fontSize:22, width:56, flexShrink:0 }}>
             {MEAL_ICONS.map(ic => <option key={ic} value={ic}>{ic}</option>)}
           </select>
           <input className="inp" placeholder="Nome da refeição" value={name} onChange={e => setName(e.target.value)} />
         </div>
 
-        {/* Totals */}
-        <div style={{ padding:'10px 14px', background:'var(--bg3)', borderRadius:'var(--r)', marginBottom:14, display:'flex', gap:14, fontSize:13, flexWrap:'wrap' }}>
-          <span>🔥 <b style={{ color:'var(--accent)' }}>{Math.round(totals.cal)}</b> kcal</span>
-          <span>💪 <b style={{ color:'#EF4444' }}>{Math.round(totals.prot)}g</b> P</span>
-          <span>🌾 <b style={{ color:'#F59E0B' }}>{Math.round(totals.carb)}g</b> C</span>
-          <span>🥑 <b style={{ color:'#2DD4BF' }}>{Math.round(totals.fat)}g</b> G</span>
-        </div>
-
-        {/* Items with drag, grouped by preset (sub_name) when present */}
+        {/* Totals bar */}
         {items.length > 0 && (
-          <div style={{ marginBottom:8 }}>
-            <p style={{ fontSize:11, color:'var(--t3)', marginBottom:6 }}>☰ Arraste para reordenar</p>
-            {groupItemsBySubName(items).map((group, gi) => (
+          <div style={{ padding:'12px 16px', background:'var(--bg3)', borderRadius:'var(--r)', marginBottom:16, border:'1px solid var(--b1)' }}>
+            <div style={{ display:'flex', gap:16, fontSize:13, flexWrap:'wrap' }}>
+              <span>🔥 <b style={{ color:'var(--accent)' }}>{Math.round(totals.cal)}</b> kcal</span>
+              <span>P: <b style={{ color:'#EF4444' }}>{Math.round(totals.prot)}g</b></span>
+              <span>C: <b style={{ color:'#F59E0B' }}>{Math.round(totals.carb)}g</b></span>
+              <span>G: <b style={{ color:'#2DD4BF' }}>{Math.round(totals.fat)}g</b></span>
+            </div>
+          </div>
+        )}
+
+        {/* Items grouped */}
+        {items.length > 0 && (
+          <div style={{ marginBottom:14 }}>
+            <div style={{ fontSize:11, color:'var(--t3)', marginBottom:8 }}>⠿ Arraste para reordenar</div>
+            {groups.map((group, gi) => (
               <div key={gi} style={{ marginBottom: group.subName ? 10 : 0 }}>
                 {group.subName && (
-                  <div style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 0 4px 2px' }}>
-                    <span style={{ fontSize:14 }}>{group.subIcon || '🍱'}</span>
+                  <div style={{ display:'flex', alignItems:'center', gap:7, padding:'6px 4px 4px', borderLeft:'3px solid var(--accent)', paddingLeft:10, marginBottom:4 }}>
+                    {group.subIcon && <span style={{ fontSize:14 }}>{group.subIcon}</span>}
                     <span style={{ fontSize:12, fontWeight:700, color:'var(--accent)' }}>{group.subName}</span>
+                    <span style={{ fontSize:10, color:'var(--t3)', marginLeft:'auto' }}>opção</span>
                   </div>
                 )}
-                <div style={{ paddingLeft: group.subName ? 14 : 0, borderLeft: group.subName ? '2px solid var(--accent20)' : 'none' }}>
+                <div style={{ paddingLeft: group.subName ? 12 : 0, borderLeft: group.subName ? '2px solid var(--accent20)' : 'none' }}>
                   {group.entries.map(({ item, index: i }) => (
                     <div key={i} {...getItemProps(i)}>
-                      <FoodItemRow item={item} customFoods={customFoods} onChange={f => updateItem(i, f)} onRemove={() => removeItem(i)}
+                      <FoodItemRow item={item} customFoods={customFoods}
+                        onChange={f => updateItem(i, f)} onRemove={() => removeItem(i)}
                         handleProps={getHandleProps(i)} dragging={dragIndex === i} />
                     </div>
                   ))}
@@ -382,22 +492,24 @@ function MealEditor({ meal, plan, userId, customFoods, onFoodCreated, onSave, on
         {/* Add buttons */}
         <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
           <button onClick={() => setAddFood(true)}
-            style={{ padding:'12px', border:'1.5px dashed var(--b3)', borderRadius:'var(--r)', color:'var(--t2)', fontSize:13, fontWeight:600, background:'none', cursor:'pointer' }}>
+            style={{ padding:'13px', border:'1.5px dashed var(--b3)', borderRadius:'var(--r)', color:'var(--t2)', fontSize:13, fontWeight:600, background:'none', cursor:'pointer' }}>
             + Adicionar alimento
           </button>
           <button onClick={() => setPresets(true)}
-            style={{ padding:'12px', border:'1.5px dashed var(--accent)', borderRadius:'var(--r)', color:'var(--accent)', fontSize:13, fontWeight:600, background:'var(--accent10)', cursor:'pointer' }}>
-            🔁 Adicionar opção/substituição
+            style={{ padding:'13px', border:'1.5px dashed var(--accent)', borderRadius:'var(--r)', color:'var(--accent)', fontSize:13, fontWeight:600, background:'var(--accent10)', cursor:'pointer' }}>
+            🔁 Adicionar opção / substituição
           </button>
         </div>
       </div>
 
-      {addFood  && <FoodPicker userId={userId} customFoods={customFoods} onFoodCreated={onFoodCreated} onClose={() => setAddFood(false)}  onAdd={fi => { setItems(p=>[...p,{...fi}]); setAddFood(false) }} />}
-      {presets  && (
+      {addFood && (
+        <FoodPicker userId={userId} customFoods={customFoods} onFoodCreated={onFoodCreated}
+          onClose={() => setAddFood(false)}
+          onAdd={fi => { setItems(p=>[...p,{...fi}]); setAddFood(false) }} />
+      )}
+      {presets && (
         <PresetPicker
-          userId={userId}
-          customFoods={customFoods}
-          onFoodCreated={onFoodCreated}
+          userId={userId} customFoods={customFoods} onFoodCreated={onFoodCreated}
           onClose={() => setPresets(false)}
           onUse={preset => {
             const grouped = preset.foods.map(f => ({ ...f, sub_name: preset.name, sub_icon: preset.icon }))
@@ -411,8 +523,6 @@ function MealEditor({ meal, plan, userId, customFoods, onFoodCreated, onSave, on
   )
 }
 
-/** Group a flat list of meal items into [{ subName, subIcon, entries:[{item,index}] }],
- *  preserving original order. Items without sub_name become their own ungrouped entries. */
 function groupItemsBySubName(items) {
   const groups = []
   let current = null
@@ -441,25 +551,27 @@ function FoodItemRow({ item, customFoods = [], onChange, onRemove, handleProps, 
       onChange({ amount:a, unit:u, calories:m.cal, protein:m.prot, carbs:m.carb, fat:m.fat })
     } else {
       const r=item.amount>0?a/item.amount:0
-      onChange({ amount:a, unit:u, calories:+(item.calories*r).toFixed(1), protein:+(item.protein*r).toFixed(1), carbs:+(item.carbs*r).toFixed(1), fat:+(item.fat*r).toFixed(1) })
+      onChange({ amount:a, unit:u,
+        calories:+(item.calories*r).toFixed(1), protein:+(item.protein*r).toFixed(1),
+        carbs:+(item.carbs*r).toFixed(1), fat:+(item.fat*r).toFixed(1) })
     }
   }
 
   return (
-    <div className={dragging ? 'drag-ghost' : ''} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 0', borderBottom:'1px solid var(--b2)' }}>
-      <span {...handleProps} style={{ ...handleProps?.style, fontSize:18, color:'var(--t3)', flexShrink:0, padding:'8px 4px' }}>☰</span>
+    <div className={dragging ? 'drag-ghost' : ''} style={{ display:'flex', alignItems:'center', gap:8, padding:'9px 0', borderBottom:'1px solid var(--b2)' }}>
+      <span {...handleProps} style={{ ...handleProps?.style, fontSize:16, color:'var(--t3)', flexShrink:0, padding:'6px 3px' }}>⠿</span>
       <div style={{ flex:1, minWidth:0 }}>
         <div style={{ fontSize:13, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'var(--t1)' }}>{item.food_name}</div>
-        <div style={{ fontSize:10, color:'var(--t3)' }}>{Math.round(item.calories||0)} kcal · {Math.round(item.protein||0)}g P</div>
+        <div style={{ fontSize:10, color:'var(--t3)', marginTop:1 }}>{Math.round(item.calories||0)} kcal · {Math.round(item.protein||0)}g P</div>
       </div>
       <input type="number" value={item.amount} onChange={e => handle(e.target.value, item.unit)}
-        style={{ width:58, background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t1)', padding:'6px', fontSize:13, textAlign:'center' }}
+        style={{ width:60, background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t1)', padding:'7px', fontSize:13, textAlign:'center' }}
         inputMode="decimal" />
       <select value={item.unit} onChange={e => handle(item.amount, e.target.value)}
-        style={{ background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t2)', padding:'6px 4px', fontSize:12 }}>
+        style={{ background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t2)', padding:'7px 5px', fontSize:12 }}>
         {units.map(u => <option key={u} value={u}>{u}</option>)}
       </select>
-      <button onClick={onRemove} style={{ color:'var(--red)', fontSize:16, flexShrink:0, background:'none', border:'none', cursor:'pointer', padding:'2px 6px' }}>✕</button>
+      <button onClick={onRemove} style={{ color:'var(--red)', fontSize:16, flexShrink:0, background:'none', border:'none', cursor:'pointer', padding:'4px 6px' }}>✕</button>
     </div>
   )
 }
@@ -536,26 +648,13 @@ function FoodPicker({ userId, customFoods = [], onFoodCreated, onClose, onAdd })
           </p>
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-          <div>
-            <label className="label" style={{ display:'block', marginBottom:5 }}>Calorias (kcal)</label>
-            <input className="inp" type="number" inputMode="decimal" value={newFood.calories}
-              onChange={e => setNewFood(f => ({ ...f, calories:e.target.value }))} />
-          </div>
-          <div>
-            <label className="label" style={{ display:'block', marginBottom:5, color:'#EF4444' }}>Proteína (g)</label>
-            <input className="inp" type="number" inputMode="decimal" value={newFood.protein}
-              onChange={e => setNewFood(f => ({ ...f, protein:e.target.value }))} style={{ borderColor:'#EF444444' }} />
-          </div>
-          <div>
-            <label className="label" style={{ display:'block', marginBottom:5, color:'#F59E0B' }}>Carboidratos (g)</label>
-            <input className="inp" type="number" inputMode="decimal" value={newFood.carbs}
-              onChange={e => setNewFood(f => ({ ...f, carbs:e.target.value }))} style={{ borderColor:'#F59E0B44' }} />
-          </div>
-          <div>
-            <label className="label" style={{ display:'block', marginBottom:5, color:'#2DD4BF' }}>Gordura (g)</label>
-            <input className="inp" type="number" inputMode="decimal" value={newFood.fat}
-              onChange={e => setNewFood(f => ({ ...f, fat:e.target.value }))} style={{ borderColor:'#2DD4BF44' }} />
-          </div>
+          {[['Calorias (kcal)','calories','var(--accent)'],['Proteína (g)','protein','#EF4444'],['Carboidratos (g)','carbs','#F59E0B'],['Gordura (g)','fat','#2DD4BF']].map(([l,k,c]) => (
+            <div key={k}>
+              <label className="label" style={{ display:'block', marginBottom:5, color:c }}>{l}</label>
+              <input className="inp" type="number" inputMode="decimal" value={newFood[k]}
+                onChange={e => setNewFood(f => ({ ...f, [k]:e.target.value }))} style={{ borderColor:c+'44' }} />
+            </div>
+          ))}
         </div>
       </FormSheet>
     )
@@ -581,7 +680,7 @@ function FoodPicker({ userId, customFoods = [], onFoodCreated, onClose, onAdd })
       )}
       {!picked && query.length >= 1 && (
         <button onClick={openCreate}
-          style={{ width:'100%', padding:'10px', border:'1.5px dashed var(--b3)', borderRadius:'var(--r)', color:'var(--accent)', fontSize:13, fontWeight:600, background:'none', cursor:'pointer' }}>
+          style={{ width:'100%', padding:'11px', border:'1.5px dashed var(--b3)', borderRadius:'var(--r)', color:'var(--accent)', fontSize:13, fontWeight:600, background:'none', cursor:'pointer' }}>
           + Cadastrar "{query}" como novo alimento
         </button>
       )}
@@ -605,7 +704,7 @@ function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse }) {
   const { toast } = useApp()
   const [presets, setPresets] = useState([])
   const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState(null) // null=list, 'new'=creating, preset=editing
+  const [editing, setEditing] = useState(null)
   const [del,     setDel]     = useState(null)
 
   useEffect(() => { load() }, [userId])
@@ -629,8 +728,6 @@ function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse }) {
     finally { setDel(null) }
   }
 
-  // Quick-start suggestions from the built-in static library, only shown
-  // when the user has no presets of their own yet.
   const suggestions = presets.length === 0
     ? Object.values(MEAL_PRESETS).flatMap(cat => cat.options.map(o => ({ ...o, _suggested:true })))
     : []
@@ -649,7 +746,7 @@ function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse }) {
   return (
     <Modal title="Opções desta Refeição" onClose={onClose}>
       <button onClick={() => setEditing('new')}
-        style={{ width:'100%', padding:'12px', marginBottom:14, border:'1.5px dashed var(--accent)', borderRadius:'var(--r)', color:'var(--accent)', fontSize:13, fontWeight:700, background:'var(--accent10)', cursor:'pointer' }}>
+        style={{ width:'100%', padding:'13px', marginBottom:16, border:'1.5px dashed var(--accent)', borderRadius:'var(--r)', color:'var(--accent)', fontSize:13, fontWeight:700, background:'var(--accent10)', cursor:'pointer' }}>
         + Criar nova opção
       </button>
 
@@ -662,7 +759,7 @@ function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse }) {
                 return (
                   <div key={p.id} {...getItemProps(i)} className={dragIndex===i ? 'drag-ghost' : ''}
                     style={{ background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:'var(--r)', display:'flex', alignItems:'center', gap:8, padding:'10px 10px 10px 6px' }}>
-                    <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:16, color:'var(--t3)', padding:'8px 4px' }}>☰</span>
+                    <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:16, color:'var(--t3)', padding:'8px 4px' }}>⠿</span>
                     <button onClick={() => onUse(p)} style={{ flex:1, display:'flex', alignItems:'center', gap:10, background:'none', border:'none', textAlign:'left', cursor:'pointer', padding:0, minWidth:0 }}>
                       <span style={{ fontSize:20, flexShrink:0 }}>{p.icon}</span>
                       <div style={{ minWidth:0 }}>
@@ -678,35 +775,30 @@ function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse }) {
               })}
             </div>
           )}
-
           {presets.length === 0 && !loading && (
             <p style={{ fontSize:12, color:'var(--t3)', marginBottom:14 }}>
-              Você ainda não tem opções cadastradas para suas refeições. Crie a sua, ou comece rápido com uma sugestão abaixo:
+              Você ainda não tem opções cadastradas. Crie ou comece com uma sugestão:
             </p>
           )}
-
           {suggestions.map(opt => (
             <button key={opt.key} onClick={() => onUse(opt)}
               style={{ width:'100%', padding:'10px 12px', marginBottom:5, textAlign:'left', background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:'var(--r)', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
               <span style={{ fontSize:18 }}>{opt.icon}</span>
               <div>
                 <div style={{ fontWeight:600, fontSize:13, color:'var(--t1)' }}>{opt.name}</div>
-                <div style={{ fontSize:11, color:'var(--t3)' }}>
-                  {Math.round(sumMacros(opt.foods).cal)} kcal · {Math.round(sumMacros(opt.foods).prot)}g prot
-                </div>
+                <div style={{ fontSize:11, color:'var(--t3)' }}>{Math.round(sumMacros(opt.foods).cal)} kcal · {Math.round(sumMacros(opt.foods).prot)}g prot</div>
               </div>
             </button>
           ))}
         </>
       )}
-
       {del && <Confirm message={`Excluir a opção "${del.name}"?`} onConfirm={remove} onCancel={() => setDel(null)} />}
     </Modal>
   )
 }
 
 /* ─────────────────────────────────────────────
-   PRESET EDITOR (create / edit a reusable preset)
+   PRESET EDITOR
 ───────────────────────────────────────────── */
 function PresetEditor({ preset, userId, customFoods, onFoodCreated, onClose, onSaved }) {
   const { toast } = useApp()
@@ -736,16 +828,18 @@ function PresetEditor({ preset, userId, customFoods, onFoodCreated, onClose, onS
       saveLabel={preset ? 'Salvar alterações' : 'Criar opção'}>
       <div style={{ display:'flex', gap:10 }}>
         <select value={icon} onChange={e => setIcon(e.target.value)}
-          style={{ background:'var(--bg3)', border:'1.5px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t1)', padding:'10px', fontSize:22, width:56 }}>
+          style={{ background:'var(--bg3)', border:'1.5px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t1)', padding:'10px', fontSize:22, width:56, flexShrink:0 }}>
           {MEAL_ICONS.map(ic => <option key={ic} value={ic}>{ic}</option>)}
         </select>
         <input className="inp" placeholder="Nome da opção (ex: Mingau de Aveia)" value={name} onChange={e => setName(e.target.value)} autoFocus />
       </div>
 
       {foods.length > 0 && (
-        <div style={{ padding:'10px 14px', background:'var(--bg3)', borderRadius:'var(--r)', display:'flex', gap:14, fontSize:13, flexWrap:'wrap' }}>
+        <div style={{ padding:'10px 14px', background:'var(--bg3)', borderRadius:'var(--r)', display:'flex', gap:14, fontSize:13 }}>
           <span>🔥 <b style={{ color:'var(--accent)' }}>{Math.round(totals.cal)}</b> kcal</span>
-          <span>💪 <b style={{ color:'#EF4444' }}>{Math.round(totals.prot)}g</b> P</span>
+          <span>P: <b style={{ color:'#EF4444' }}>{Math.round(totals.prot)}g</b></span>
+          <span>C: <b style={{ color:'#F59E0B' }}>{Math.round(totals.carb)}g</b></span>
+          <span>G: <b style={{ color:'#2DD4BF' }}>{Math.round(totals.fat)}g</b></span>
         </div>
       )}
 
@@ -763,7 +857,7 @@ function PresetEditor({ preset, userId, customFoods, onFoodCreated, onClose, onS
       )}
 
       <button onClick={() => setAddFood(true)}
-        style={{ padding:'12px', border:'1.5px dashed var(--b3)', borderRadius:'var(--r)', color:'var(--t2)', fontSize:13, fontWeight:600, background:'none', cursor:'pointer' }}>
+        style={{ padding:'13px', border:'1.5px dashed var(--b3)', borderRadius:'var(--r)', color:'var(--t2)', fontSize:13, fontWeight:600, background:'none', cursor:'pointer' }}>
         + Adicionar alimento à opção
       </button>
 
@@ -812,7 +906,7 @@ function GoalsEditor({ goals, userId, profile, onSave, onBack, refreshProfile })
         <button className="btn btn-primary" style={{ padding:'8px 16px', fontSize:13 }} onClick={save} disabled={saving}>{saving?'⏳':'Salvar'}</button>
       </div>
       <div style={{ padding:'8px 16px' }}>
-        <h2 style={{ fontSize:19, fontWeight:700, marginBottom:4, color:'var(--t1)' }}>Metas & Dados Pessoais</h2>
+        <h2 style={{ fontSize:19, fontWeight:700, marginBottom:4 }}>Metas & Dados Pessoais</h2>
         <p style={{ color:'var(--t3)', fontSize:13, marginBottom:20, lineHeight:1.5 }}>Peso usado para calcular g/kg e referências de macros.</p>
 
         <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--r)', padding:14, marginBottom:14 }}>
