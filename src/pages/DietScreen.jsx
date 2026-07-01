@@ -274,7 +274,17 @@ function MealCard({ meal, onEdit, onDelete, handleProps, dragging }) {
           </div>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontWeight:800, fontSize:15, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{meal.name}</div>
-            <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:3 }}>
+            {/* Show preset/option name(s) when collapsed */}
+            {!open && hasOpts && (
+              <div style={{ display:'flex', flexWrap:'wrap', gap:4, marginTop:4 }}>
+                {groups.filter(g=>g.subName).map((g,i) => (
+                  <span key={i} style={{ fontSize:10, fontWeight:700, color:'var(--accent)', background:'var(--accent10)', border:'1px solid var(--accent20)', borderRadius:99, padding:'1px 7px', whiteSpace:'nowrap', maxWidth:140, overflow:'hidden', textOverflow:'ellipsis' }}>
+                    {g.subIcon} {g.subName}
+                  </span>
+                ))}
+              </div>
+            )}
+            <div style={{ display:'flex', alignItems:'center', gap:6, marginTop: (!open && hasOpts) ? 4 : 3 }}>
               <span style={{ fontSize:12, fontWeight:700, color:'var(--accent)' }}>{Math.round(totals.cal)} kcal</span>
               <span style={{ fontSize:11, color:'var(--b3)' }}>·</span>
               <span style={{ fontSize:11, color:'var(--t3)' }}>P:{Math.round(totals.prot)}g · C:{Math.round(totals.carb)}g · G:{Math.round(totals.fat)}g</span>
@@ -471,8 +481,22 @@ function MealEditor({ meal, plan, userId, customFoods, onFoodCreated, onSave, on
                 {group.subName && (
                   <div style={{ display:'flex', alignItems:'center', gap:7, padding:'6px 4px 4px', borderLeft:'3px solid var(--accent)', paddingLeft:10, marginBottom:4 }}>
                     {group.subIcon && <span style={{ fontSize:14 }}>{group.subIcon}</span>}
-                    <span style={{ fontSize:12, fontWeight:700, color:'var(--accent)' }}>{group.subName}</span>
-                    <span style={{ fontSize:10, color:'var(--t3)', marginLeft:'auto' }}>opção</span>
+                    <span style={{ fontSize:12, fontWeight:700, color:'var(--accent)', flex:1 }}>{group.subName}</span>
+                    <button
+                      onClick={() => {
+                        const newName = window.prompt('Novo nome:', group.subName)
+                        if (newName && newName.trim()) {
+                          setItems(p => p.map(it => it.sub_name === group.subName ? { ...it, sub_name: newName.trim() } : it))
+                        }
+                      }}
+                      style={{ fontSize:12, padding:'3px 7px', background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:6, color:'var(--t2)', cursor:'pointer', flexShrink:0 }}>✏️</button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Remover a opção "${group.subName}" e todos os seus alimentos?`)) {
+                          setItems(p => p.filter(it => it.sub_name !== group.subName))
+                        }
+                      }}
+                      style={{ fontSize:12, padding:'3px 7px', background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:6, color:'var(--red)', cursor:'pointer', flexShrink:0 }}>🗑️</button>
                   </div>
                 )}
                 <div style={{ paddingLeft: group.subName ? 12 : 0, borderLeft: group.subName ? '2px solid var(--accent20)' : 'none' }}>
