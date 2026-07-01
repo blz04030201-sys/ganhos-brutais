@@ -3,14 +3,15 @@
 ## 0. Antes de tudo
 Faça backup do seu repositório atual (ou garanta que está tudo commitado), depois
 extraia o ZIP e substitua os arquivos do seu projeto pelos desta versão.
-Nenhum dado do Supabase é apagado por essa atualização — é só código.
+Nenhum dado do Supabase é apagado por essa atualização — o app inteiro
+continua funcionando com a mesma conta, login e dados salvos.
 
-## 1. Rodar a migration no Supabase (só isso precisa de SQL nesta leva)
-Apenas o item "academia por cor" exige uma coluna nova no banco. Os bugs de
-macros foram corrigidos 100% no código, sem precisar tocar no banco.
+## 1. Rodar a migration no Supabase
+Esta leva adiciona **apenas uma coisa nova ao banco**: a tabela de registros de
+hidratação (`water_logs`). Nada existente é alterado ou removido.
 
 1. Abra o painel do Supabase → seu projeto → **SQL Editor**.
-2. Cole o conteúdo do arquivo `migration-gym-color.sql` (na raiz do projeto).
+2. Cole o conteúdo do arquivo `migration-hydration.sql` (na raiz do projeto).
 3. Clique em **Run**. É seguro rodar mais de uma vez (idempotente).
 
 ## 2. Instalar e testar localmente (PowerShell)
@@ -22,12 +23,15 @@ npm run dev
 ```
 
 Abra o link que aparecer (geralmente `http://localhost:5173`) e confira:
-- Dieta: adicione "1 pão francês" e "1 ovo" e veja se os kcal agora batem
-  (pão francês ≈150 kcal, ovo ≈72 kcal, não mais 300/143).
-- Crie/edite uma academia e escolha uma cor.
-- Veja a lista de exercícios mostrando todas as séries do último treino.
-- Abra um formulário (ex: novo exercício) com o teclado do celular (ou emulador)
-  e confirme que o botão de salvar continua visível.
+- Tela de Dieta: agora abre com a saudação (Bom dia/Boa tarde/Boa noite + seu
+  nome) e o avatar, igual à tela inicial.
+- Role até o final da Dieta e veja o card **Hidratação**: toque em +200ml,
+  +300ml ou +500ml e veja o total em litros subir. Teste também o campo
+  manual em litros (ex: digite `0.7` e toque em "+").
+- Confirme que a meta mostrada é `peso x 0.045` litros (ex: 80kg → 3.6L).
+- Toque em "Desfazer último" e veja o último registro ser removido.
+- Confirme que refeições, metas, macros, treino, corpo e configurações
+  continuam funcionando exatamente como antes — nada disso foi alterado.
 
 Quando estiver satisfeito, pare o servidor (`Ctrl+C`).
 
@@ -42,7 +46,7 @@ npm run preview
 
 ```powershell
 git add .
-git commit -m "Correção de macros, melhorias de mobile/UX, cor de academia, hierarquia da dieta"
+git commit -m "Polimento da tela de Dieta (saudação) + hidratação em litros (45ml/kg)"
 git push
 ```
 
@@ -64,20 +68,17 @@ reabra o app, ou aguarde a atualização automática do `sw.js`).
 
 ## O que foi feito nesta leva (resumo técnico)
 
-| # | Item do seu documento | Status |
+| # | Item pedido | Status |
 |---|---|---|
-| 1 | Hierarquia visual da dieta | ✅ Cartão de refeição redesenhado: cada opção vira um sub-cartão com borda, indentação e macros próprios |
-| 2 | Substituições por refeição | ✅ Usa o sistema de "opções" (ex-presets) já existente, relabelado e com visual de hierarquia clara |
-| 3 | Macros incorretos | ✅ Corrigido na raiz (conversão unidade↔grama) |
-| 4 | Macros zerando | ✅ Recalculo automático ao carregar a tela |
-| 5 | Formulários no celular | ✅ Meta viewport `interactive-widget=resizes-content` + reforço de padding |
-| 6 | Safe Area | ✅ Buffer mínimo garantido em nav/footer/toast mesmo quando o Android reporta 0 |
-| 7 | Última execução antes de registrar | ✅ Mostra todas as séries válidas, não só uma |
-| 8 | Cards de exercício menores | ✅ Padding e fontes reduzidos |
-| 9 | Academia por cor | ✅ Paleta de 28 cores + migration `migration-gym-color.sql` |
-| 10 | Nome curto/completo no treino | ✅ Nome curto grande, completo menor abaixo |
-| 11 | Tela inicial — sugestão automática | ✅ Já existia (academia/treino do dia); adicionei um seletor rápido "Trocar" |
-| 12 | Revisão geral de UX | ⚠️ Parcial — toquei nos pontos acima; uma varredura completa de espaçamento/animação em todo o app não foi feita nesta leva |
+| 1 | Tela de Dieta mais parecida com a referência enviada | ✅ Adicionada a saudação do topo (Bom dia/Boa tarde/Boa noite, nome + avatar), no mesmo padrão visual já usado na tela inicial. O card de Meta Diária, o donut de Distribuição da Dieta, os Macros Consumidos e a lista de Refeições já seguiam esse padrão e foram mantidos como estavam. |
+| 2 | Hidratação por cálculo (45ml x kg corporal) | ✅ Meta calculada automaticamente a partir do peso salvo em Metas. Se o peso não estiver definido, o card avisa para preenchê-lo. |
+| 3 | Registro em litros, não em copos | ✅ Removido o conceito de "copos". Registro por botões rápidos (+200ml/+300ml/+500ml) e por campo manual em litros; total e meta sempre exibidos em litros (ex: `2.1 / 3.0 L`). Inclui opção de desfazer o último registro. |
+| 4 | Nenhuma funcionalidade existente alterada | ✅ Supabase, GitHub Pages, PWA, autenticação, services/hooks/contexts e toda a arquitetura permanecem exatamente como estavam. A única mudança de banco é a criação da nova tabela `water_logs` (aditiva, não toca em nenhuma tabela existente). |
 
-Se quiser, na próxima rodada posso focar especificamente no item 12 (polimento
-geral) já que os outros 11 estão endereçados.
+### Arquivos tocados
+- `src/pages/DietScreen.jsx` — saudação no topo + novo card de Hidratação.
+- `src/services/diet.js` — novo `hydrationService` (mesmo padrão dos outros services).
+- `migration-hydration.sql` — novo, cria a tabela `water_logs` com RLS.
+
+Nenhum outro arquivo (`.git`, `.env`, `node_modules`, schema existente, demais
+telas, services, hooks ou contexts) foi modificado.

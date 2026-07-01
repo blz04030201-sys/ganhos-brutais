@@ -235,6 +235,35 @@ export const measurementService = {
   },
 }
 
+// ── HIDRATAÇÃO (registro em litros, meta = 45ml x kg corporal) ──
+export const hydrationService = {
+  async listByDate(userId, date) {
+    const { data, error } = await supabase
+      .from('water_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('date', date)
+      .order('created_at', { ascending: true })
+    if (error) throw error
+    return data || []
+  },
+
+  async add(userId, date, amountMl) {
+    const { data, error } = await supabase
+      .from('water_logs')
+      .insert({ user_id: userId, date, amount_ml: amountMl })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async delete(id) {
+    const { error } = await supabase.from('water_logs').delete().eq('id', id)
+    if (error) throw error
+  },
+}
+
 // ── MEAL PRESETS (reusable food groups, e.g. "Mingau de Aveia") ──
 export const presetService = {
   async list(userId) {

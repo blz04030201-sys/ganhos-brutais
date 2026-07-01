@@ -1,21 +1,35 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '../hooks/useAppContext'
-import { mealPlanService, mealService, mealItemService, dietGoalsService, foodService, presetService } from '../services/diet'
+import { mealPlanService, mealService, mealItemService, dietGoalsService, foodService, presetService, hydrationService } from '../services/diet'
 import { profileService } from '../services/profile'
 import { searchFoods, calcMacros, findFood, getFoodUnits, recalcItems, mealGroupKey, mealPresetSuggestions } from '../utils/foodsDb'
-import { sumMacros, MEAL_ICONS, smartGoals } from '../utils/helpers'
+import { sumMacros, MEAL_ICONS, smartGoals, todayISO } from '../utils/helpers'
 import { Modal, FormSheet, Confirm, Loader, Empty, SectionHeader } from '../components/UI'
 import { useDragSort } from '../hooks/useDragSort'
+
+// Greeting header — mesmo padrão usado na tela inicial (Dashboard)
+const DAY_STR = () => {
+  const d = new Date()
+  const days = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado']
+  const months = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+  return `${days[d.getDay()]} • ${d.getDate()} de ${months[d.getMonth()]}`
+}
+const HOUR = new Date().getHours()
+const GREETING = HOUR < 12 ? 'Bom dia,' : HOUR < 18 ? 'Boa tarde,' : 'Boa noite,'
+
+// Hidratação: meta recomendada = 45ml por kg de peso corporal (registrado em litros)
+const WATER_ML_PER_KG = 45
 
 /* ─────────────────────────────────────────────
    MAIN SCREEN
 ───────────────────────────────────────────── */
-export default function DietScreen() {
+export default function DietScreen({ setTab }) {
   const { userId, profile, refreshProfile, toast } = useApp()
   const [plan,        setPlan]        = useState(null)
   const [meals,       setMeals]       = useState([])
   const [goals,       setGoals]       = useState({ calories:2800, protein:180, carbs:350, fat:80 })
   const [customFoods, setCustomFoods] = useState([])
+  const [water,       setWater]       = useState([])
   const [loading,     setLoading]     = useState(true)
   const [view,        setView]        = useState('plan')
   const [editMeal,    setEditMeal]    = useState(null)
@@ -24,17 +38,21 @@ export default function DietScreen() {
 
   const load = async () => {
     try {
-      const [g, p, cf] = await Promise.all([
+      const [g, p, cf, w] = await Promise.all([
         dietGoalsService.get(userId),
         mealPlanService.getActive(userId),
         foodService.listCustom(userId),
+        hydrationService.listByDate(userId, todayISO()),
       ])
       setGoals(g)
       setCustomFoods(cf)
+      setWater(w)
       if (p) { setPlan(p); setMeals(await loadMeals(p.id, cf)) }
       else   { const np = await mealPlanService.create(userId); setPlan(np); setMeals([]) }
     } finally { setLoading(false) }
   }
+
+  const reloadWater = async () => setWater(await hydrationService.listByDate(userId, todayISO()))
 
   const loadMeals = async (planId, cf) => {
     const ms = await mealService.listByPlan(planId)
@@ -69,6 +87,30 @@ export default function DietScreen() {
 
   return (
     <div className="screen">
+      {/* ── TOP GREETING ───────────────────────────────── */}
+      <div style={{ padding:'20px 16px 0', display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+        <div>
+          <p style={{ color:'var(--t2)', fontSize:14, fontWeight:500 }}>{GREETING}</p>
+          <h1 style={{ fontSize:30, fontWeight:800, lineHeight:1.1, marginTop:2 }}>
+            {(profile?.name || 'Atleta').split(' ')[0]} 👋
+          </h1>
+          <p style={{ color:'var(--t3)', fontSize:12, marginTop:4 }}>{DAY_STR()}</p>
+        </div>
+        <button
+          onClick={() => setTab && setTab('settings')}
+          style={{
+            width:42, height:42, borderRadius:'50%',
+            background:'linear-gradient(135deg, var(--accent), var(--purple))',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontSize:16, fontWeight:800, color:'#fff',
+            border:'none', flexShrink:0,
+            boxShadow:'0 4px 16px var(--accent20)',
+          }}
+        >
+          {(profile?.name||'A')[0].toUpperCase()}
+        </button>
+      </div>
+
       {/* Header */}
       <div className="screen-header">
         <div>
@@ -128,7 +170,102 @@ export default function DietScreen() {
           </div>
         )
       }
+
+      {/* Hidratação */}
+      <div style={{ margin:'18px 14px 0' }}>
+        <HydrationCard
+          water={water}
+          weight={weight}
+          onAdd={async (ml) => {
+            await hydrationService.add(userId, todayISO(), ml)
+            await reloadWater()
+          }}
+          onUndo={async () => {
+            const last = water[water.length - 1]
+            if (!last) return
+            await hydrationService.delete(last.id)
+            await reloadWater()
+          }}
+        />
+      </div>
+
       <div style={{ height:24 }} />
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────
+   HIDRATAÇÃO — meta = 45ml x kg corporal, registrado em litros
+───────────────────────────────────────────── */
+function HydrationCard({ water, weight, onAdd, onUndo }) {
+  const [custom, setCustom] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const totalMl = water.reduce((a, w) => a + (parseFloat(w.amount_ml) || 0), 0)
+  const totalL  = totalMl / 1000
+  const goalL   = weight ? +(weight * WATER_ML_PER_KG / 1000).toFixed(1) : null
+  const pctDone = goalL ? Math.min(100, Math.round(totalL / goalL * 100)) : 0
+
+  const add = async (ml) => {
+    if (!ml || ml <= 0) return
+    setSaving(true)
+    try { await onAdd(ml) } finally { setSaving(false) }
+  }
+
+  const addCustom = async () => {
+    const liters = parseFloat((custom || '').replace(',', '.'))
+    if (!liters || liters <= 0) return
+    await add(Math.round(liters * 1000))
+    setCustom('')
+  }
+
+  return (
+    <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'16px 18px' }}>
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:14 }}>
+        <div>
+          <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'var(--t3)', textTransform:'uppercase', marginBottom:2 }}>💧 Hidratação</div>
+          <div style={{ fontSize:11, color:'var(--t3)' }}>
+            {goalL ? `Meta: ${WATER_ML_PER_KG}ml por kg corporal` : 'Defina seu peso em Metas para calcular sua meta'}
+          </div>
+        </div>
+        <div style={{ textAlign:'right', flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'baseline', gap:4, justifyContent:'flex-end' }}>
+            <span style={{ fontSize:22, fontWeight:900, color:'var(--t1)', lineHeight:1 }}>{totalL.toFixed(1)}</span>
+            <span style={{ fontSize:12, color:'var(--t3)', fontWeight:600 }}>/ {goalL ? goalL.toFixed(1) : '—'} L</span>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ height:8, background:'var(--b1)', borderRadius:99, overflow:'hidden', marginBottom:14 }}>
+        <div style={{ height:'100%', width:`${pctDone}%`, background:'linear-gradient(90deg, #0EA5E9, #38BDF8)', borderRadius:99, transition:'width .5s' }} />
+      </div>
+
+      <div style={{ display:'flex', gap:8, marginBottom:water.length ? 10 : 0 }}>
+        {[200, 300, 500].map(ml => (
+          <button key={ml} disabled={saving} onClick={() => add(ml)}
+            style={{ flex:1, padding:'9px 0', background:'var(--accent10)', border:'1px solid var(--accent20)', borderRadius:'var(--rsm)', color:'var(--accent)', fontSize:12.5, fontWeight:700, cursor:'pointer' }}>
+            + {ml >= 1000 ? `${ml/1000}L` : `${ml}ml`}
+          </button>
+        ))}
+        <div style={{ display:'flex', flex:'1.2 1 0%', gap:4, minWidth:0 }}>
+          <input value={custom} onChange={e => setCustom(e.target.value)} placeholder="L"
+            inputMode="decimal" className="inp" style={{ flex:'1 1 0%', minWidth:0, padding:'8px 6px', fontSize:12.5, textAlign:'center', minHeight:36 }} />
+          <button disabled={saving || !custom} onClick={addCustom}
+            style={{ flexShrink:0, padding:'0 12px', background:'var(--accent)', border:'none', borderRadius:'var(--rsm)', color:'#fff', fontSize:16, fontWeight:700, cursor:'pointer', opacity: custom ? 1 : 0.5 }}>
+            +
+          </button>
+        </div>
+      </div>
+
+      {water.length > 0 && (
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', paddingTop:10, borderTop:'1px solid var(--b2)' }}>
+          <span style={{ fontSize:11, color:'var(--t3)' }}>{water.length} registro{water.length!==1?'s':''} hoje</span>
+          <button onClick={onUndo} disabled={saving}
+            style={{ background:'none', border:'none', color:'var(--t3)', fontSize:11, fontWeight:600, cursor:'pointer' }}>
+            ↩︎ Desfazer último
+          </button>
+        </div>
+      )}
     </div>
   )
 }
