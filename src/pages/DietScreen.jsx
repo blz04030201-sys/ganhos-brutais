@@ -342,17 +342,15 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
         </div>
       </div>
 
-      {/* ── CARD 2: DISTRIBUIÇÃO DA DIETA — vem primeiro entre as informações
-           de macronutrientes: mostra como a dieta ATUAL está composta, com
-           base apenas nos alimentos cadastrados (não usa as metas). ── */}
-      <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'13px 15px' }}>
-        <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'var(--t3)', textTransform:'uppercase', marginBottom:1 }}>Distribuição da Dieta</div>
-        <div style={{ fontSize:10.5, color:'var(--t3)', marginBottom:10 }}>Participação de cada macronutriente nos alimentos cadastrados hoje</div>
-
-        <div style={{ display:'flex', alignItems:'center', gap:16 }}>
-          {/* Pie chart — pure macro-distribution, calculated only from the
-              foods actually logged, never from the configured goals */}
-          <div style={{ position:'relative', flexShrink:0 }}>
+      {/* ── CARD 2: DISTRIBUIÇÃO DA DIETA + CARD 3: POR KG CORPORAL ──
+           lado a lado — a pizza mostra só a distribuição calórica entre
+           macros; o card ao lado mostra só o g/kg de cada um, direto e
+           sem nenhuma outra informação misturada. ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+        {/* Distribuição da dieta — só o gráfico de pizza + legenda */}
+        <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'13px 12px' }}>
+          <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.08em', color:'var(--t3)', textTransform:'uppercase', marginBottom:10 }}>Distribuição da Dieta</div>
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
             <svg width="72" height="72" viewBox="0 0 100 100">
               <circle cx={CX} cy={CY} r={R} fill="none" stroke="var(--b1)" strokeWidth="14" />
               {segs.map((s,i) => (
@@ -364,37 +362,56 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
               ))}
               {!segs.length && <text x={CX} y={CY+4} textAnchor="middle" fill="var(--t3)" fontSize="10">sem dados</text>}
             </svg>
+            <div style={{ width:'100%', display:'flex', flexDirection:'column', gap:5 }}>
+              {macros.map(m => {
+                const calPct = macTotal > 0 && segs.length ? Math.round(m.cal / macTotal * 100) : 0
+                return (
+                  <div key={m.label} style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    <div style={{ width:7, height:7, borderRadius:'50%', background:m.color, flexShrink:0 }} />
+                    <span style={{ fontSize:11, color:'var(--t2)', fontWeight:600, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{m.label}</span>
+                    <span style={{ fontSize:11.5, fontWeight:800, color:m.color }}>{calPct}%</span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
+        </div>
 
-          {/* Legend: % of calories per macro, straight from the logged foods */}
-          <div style={{ flex:1, display:'flex', flexDirection:'column', gap:6 }}>
-            {macros.map(m => {
-              const calPct = macTotal > 0 && segs.length ? Math.round(m.cal / macTotal * 100) : 0
-              return (
-                <div key={m.label} style={{ display:'flex', alignItems:'center', gap:8 }}>
-                  <div style={{ width:9, height:9, borderRadius:'50%', background:m.color, flexShrink:0 }} />
-                  <span style={{ fontSize:12.5, color:'var(--t2)', fontWeight:600, flex:1 }}>{m.label}</span>
-                  <span style={{ fontSize:14, fontWeight:800, color:m.color }}>{calPct}%</span>
-                </div>
-              )
-            })}
-          </div>
+        {/* Por kg corporal — simples e direto: só o valor g/kg de cada macro */}
+        <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'13px 12px', display:'flex', flexDirection:'column' }}>
+          <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.08em', color:'var(--t3)', textTransform:'uppercase', marginBottom:10 }}>Por Kg Corporal</div>
+          {weight ? (
+            <div style={{ flex:1, display:'flex', flexDirection:'column', justifyContent:'center', gap:14 }}>
+              {macros.map(m => {
+                const gk = m.val / weight
+                return (
+                  <div key={m.label} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:6 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
+                      <div style={{ width:7, height:7, borderRadius:'50%', background:m.color, flexShrink:0 }} />
+                      <span style={{ fontSize:11, color:'var(--t2)', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{m.label}</span>
+                    </div>
+                    <span style={{ fontSize:13, fontWeight:800, color:m.color, flexShrink:0 }}>{gk.toFixed(2)} <span style={{ fontSize:9, color:'var(--t3)', fontWeight:600 }}>g/kg</span></span>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p style={{ fontSize:11, color:'var(--t3)', lineHeight:1.5 }}>Defina seu peso em Metas para ver o g/kg de cada macro.</p>
+          )}
         </div>
       </div>
 
-      {/* ── CARD 3: MACROS CONSUMIDOS — depois de ver a distribuição real,
-           aqui mostra o quanto já foi consumido de cada macro e se a meta
-           individual está sendo atingida (g, barra de progresso e g/kg). ── */}
+      {/* ── CARD 4: MACROS CONSUMIDOS — quanto já foi consumido de cada
+           macro, direto em gramas vs meta, sem percentual (o g/kg já tem
+           seu próprio card acima, e o % de meta atingida já aparece no
+           card de Meta Diária). ── */}
       <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'13px 15px' }}>
         <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'var(--t3)', textTransform:'uppercase', marginBottom:1 }}>Macros Consumidos</div>
-        <div style={{ fontSize:10.5, color:'var(--t3)', marginBottom:10 }}>Quanto você já bateu da meta de cada macronutriente</div>
+        <div style={{ fontSize:10.5, color:'var(--t3)', marginBottom:10 }}>Quantidade já batida da meta</div>
 
         <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
           {macros.map(m => {
             const p = pct(m.val, m.goal)
-            const gk = weight ? m.val/weight : null
-            const ok = gk!==null && gk>=m.min && gk<=m.max
-            const low = gk!==null && gk<m.min
             return (
               <div key={m.label}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:4 }}>
@@ -405,12 +422,6 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
                   <div style={{ display:'flex', alignItems:'baseline', gap:3 }}>
                     <span style={{ fontSize:14, fontWeight:800, color:'var(--t1)' }}>{Math.round(m.val)}g</span>
                     <span style={{ fontSize:10, color:'var(--t3)' }}>/ {m.goal}g</span>
-                    <span style={{ fontSize:10, color:'var(--t3)', marginLeft:4 }}>{p}%</span>
-                    {gk !== null && (
-                      <span style={{ fontSize:10, fontWeight:700, marginLeft:6, color:ok?m.color:low?'var(--orange)':'var(--red)' }}>
-                        {gk.toFixed(2)} g/kg
-                      </span>
-                    )}
                   </div>
                 </div>
                 <div style={{ height:5, background:'var(--b1)', borderRadius:99, overflow:'hidden' }}>
