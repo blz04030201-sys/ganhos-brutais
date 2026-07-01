@@ -279,6 +279,7 @@ export const presetService = {
       icon: preset.icon,
       foods: preset.foods,
       sort_order: preset.sort_order,
+      meal_group: preset.meal_group || null,
     })
   },
 

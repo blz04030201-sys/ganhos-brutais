@@ -298,3 +298,25 @@ export const MEAL_PRESETS = {
     ],
   },
 }
+
+// ── Meal grouping for substitutions ─────────────────────────────
+// "Café da manhã" and "Café da tarde" (and any generic "Lanche") share the
+// same pool of substitute dishes; "Almoço" and "Jantar" share another pool.
+// Meals whose name doesn't match either group get no automatic sharing —
+// their presets stay private to them (matched via meal_group = null).
+export function mealGroupKey(name = '') {
+  const n = String(name).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  if (n.includes('manha') || n.includes('tarde') || n.includes('lanche')) return 'breakfast_snack'
+  if (n.includes('almoco') || n.includes('jantar') || n.includes('janta')) return 'lunch_dinner'
+  return null
+}
+
+/** Built-in suggested dishes for a given meal group (used when the user has
+ *  no custom presets yet for that group). Falls back to everything if the
+ *  meal doesn't match a known group. */
+export function mealPresetSuggestions(groupKey) {
+  const tag = opt => ({ ...opt, _suggested: true })
+  if (groupKey === 'breakfast_snack') return [...MEAL_PRESETS.breakfast.options, ...MEAL_PRESETS.snack.options].map(tag)
+  if (groupKey === 'lunch_dinner') return [...MEAL_PRESETS.lunch.options, ...MEAL_PRESETS.dinner.options].map(tag)
+  return Object.values(MEAL_PRESETS).flatMap(cat => cat.options.map(tag))
+}

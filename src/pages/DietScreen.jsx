@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useApp } from '../hooks/useAppContext'
 import { mealPlanService, mealService, mealItemService, dietGoalsService, foodService, presetService } from '../services/diet'
 import { profileService } from '../services/profile'
-import { searchFoods, calcMacros, findFood, getFoodUnits, MEAL_PRESETS, recalcItems } from '../utils/foodsDb'
+import { searchFoods, calcMacros, findFood, getFoodUnits, recalcItems, mealGroupKey, mealPresetSuggestions } from '../utils/foodsDb'
 import { sumMacros, MEAL_ICONS, smartGoals } from '../utils/helpers'
 import { Modal, FormSheet, Confirm, Loader, Empty, SectionHeader } from '../components/UI'
 import { useDragSort } from '../hooks/useDragSort'
@@ -169,7 +169,7 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
   return (
     <div style={{ margin:'0 14px 6px', display:'flex', flexDirection:'column', gap:10 }}>
 
-      {/* ── CARD 1: META DIÁRIA — quanto falta para atingir a meta ── */}
+      {/* ── CARD 1: META DIÁRIA — total de calorias vs. meta ── */}
       <div style={{ background:'linear-gradient(135deg, #0c0c1c 0%, #0e0e20 100%)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'18px 20px 16px', position:'relative', overflow:'hidden' }}>
         <div style={{ position:'absolute', top:-40, right:-40, width:120, height:120, borderRadius:'50%', background:'radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%)', pointerEvents:'none' }} />
 
@@ -204,68 +204,21 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
         </div>
 
         {/* Kcal progress bar */}
-        <div style={{ height:5, background:'var(--b1)', borderRadius:99, overflow:'hidden', marginBottom:16 }}>
+        <div style={{ height:5, background:'var(--b1)', borderRadius:99, overflow:'hidden' }}>
           <div style={{ height:'100%', width:`${kcalPct}%`, background:`linear-gradient(90deg, #3B82F6, ${kcalPct>=100?'#10B981':'#818CF8'})`, borderRadius:99, transition:'width .5s' }} />
         </div>
-
-        {/* Per-macro goal bars — value vs goal only, no caloric % here */}
-        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-          {macros.map(m => {
-            const p = pct(m.val, m.goal)
-            return (
-              <div key={m.label}>
-                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-                    <div style={{ width:8, height:8, borderRadius:'50%', background:m.color }} />
-                    <span style={{ fontSize:12, fontWeight:600, color:'var(--t2)' }}>{m.label}</span>
-                  </div>
-                  <div style={{ display:'flex', alignItems:'baseline', gap:3 }}>
-                    <span style={{ fontSize:13, fontWeight:800, color:'var(--t1)' }}>{Math.round(m.val)}g</span>
-                    <span style={{ fontSize:10, color:'var(--t3)' }}>/ {m.goal}g</span>
-                    <span style={{ fontSize:10, color:'var(--t3)', marginLeft:4 }}>{p}%</span>
-                  </div>
-                </div>
-                <div style={{ height:5, background:'var(--b1)', borderRadius:99, overflow:'hidden' }}>
-                  <div style={{ height:'100%', width:`${p}%`, background:m.color, borderRadius:99, transition:'width .5s', opacity:0.9 }} />
-                </div>
-              </div>
-            )
-          })}
-        </div>
       </div>
 
-      {/* Grams + g/kg chips row (belongs to "meta diária" — no % here either) */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8 }}>
-        {macros.map(m => {
-          const gk = weight ? m.val/weight : null
-          const ok = gk!==null && gk>=m.min && gk<=m.max
-          const low = gk!==null && gk<m.min
-          return (
-            <div key={m.label} style={{
-              background:'var(--card)', borderRadius:'var(--r)', padding:'12px 10px',
-              border:`1px solid ${gk!==null&&ok ? m.color+'44' : 'var(--b1)'}`,
-              textAlign:'center', position:'relative', overflow:'hidden'
-            }}>
-              {gk!==null && <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:ok?m.color:low?'var(--orange)':'var(--red)' }} />}
-              <div style={{ fontSize:18, fontWeight:900, color:m.color, letterSpacing:'-0.5px' }}>{Math.round(m.val)}<span style={{ fontSize:10, fontWeight:600, color:'var(--t3)' }}>g</span></div>
-              <div style={{ fontSize:10, color:'var(--t3)', marginTop:2, fontWeight:600 }}>{m.label}</div>
-              {gk !== null && (
-                <div style={{ fontSize:10, fontWeight:700, marginTop:4, color:ok?m.color:low?'var(--orange)':'var(--red)' }}>
-                  {gk.toFixed(2)}g/kg
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
-
-      {/* ── CARD 2: DISTRIBUIÇÃO DA DIETA — participação calórica de cada macro ── */}
+      {/* ── CARD 2: DISTRIBUIÇÃO DA DIETA — vem primeiro entre as informações
+           de macronutrientes: mostra como a dieta ATUAL está composta, com
+           base apenas nos alimentos cadastrados (não usa as metas). ── */}
       <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'16px 18px' }}>
         <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'var(--t3)', textTransform:'uppercase', marginBottom:2 }}>Distribuição da Dieta</div>
-        <div style={{ fontSize:11, color:'var(--t3)', marginBottom:14 }}>Participação calórica de cada macronutriente hoje</div>
+        <div style={{ fontSize:11, color:'var(--t3)', marginBottom:14 }}>Participação de cada macronutriente nos alimentos cadastrados hoje</div>
 
         <div style={{ display:'flex', alignItems:'center', gap:18 }}>
-          {/* Pie chart — pure macro-distribution, unrelated to any goal */}
+          {/* Pie chart — pure macro-distribution, calculated only from the
+              foods actually logged, never from the configured goals */}
           <div style={{ position:'relative', flexShrink:0 }}>
             <svg width="90" height="90" viewBox="0 0 100 100">
               <circle cx={CX} cy={CY} r={R} fill="none" stroke="var(--b1)" strokeWidth="14" />
@@ -280,7 +233,7 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
             </svg>
           </div>
 
-          {/* Legend: % of calories per macro */}
+          {/* Legend: % of calories per macro, straight from the logged foods */}
           <div style={{ flex:1, display:'flex', flexDirection:'column', gap:9 }}>
             {macros.map(m => {
               const calPct = macTotal > 0 && segs.length ? Math.round(m.cal / macTotal * 100) : 0
@@ -293,6 +246,46 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
               )
             })}
           </div>
+        </div>
+      </div>
+
+      {/* ── CARD 3: MACROS CONSUMIDOS — depois de ver a distribuição real,
+           aqui mostra o quanto já foi consumido de cada macro e se a meta
+           individual está sendo atingida (g, barra de progresso e g/kg). ── */}
+      <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'16px 18px' }}>
+        <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'var(--t3)', textTransform:'uppercase', marginBottom:2 }}>Macros Consumidos</div>
+        <div style={{ fontSize:11, color:'var(--t3)', marginBottom:14 }}>Quanto você já bateu da meta de cada macronutriente</div>
+
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          {macros.map(m => {
+            const p = pct(m.val, m.goal)
+            const gk = weight ? m.val/weight : null
+            const ok = gk!==null && gk>=m.min && gk<=m.max
+            const low = gk!==null && gk<m.min
+            return (
+              <div key={m.label}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:5 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                    <div style={{ width:8, height:8, borderRadius:'50%', background:m.color }} />
+                    <span style={{ fontSize:12.5, fontWeight:600, color:'var(--t2)' }}>{m.label}</span>
+                  </div>
+                  <div style={{ display:'flex', alignItems:'baseline', gap:3 }}>
+                    <span style={{ fontSize:14, fontWeight:800, color:'var(--t1)' }}>{Math.round(m.val)}g</span>
+                    <span style={{ fontSize:10, color:'var(--t3)' }}>/ {m.goal}g</span>
+                    <span style={{ fontSize:10, color:'var(--t3)', marginLeft:4 }}>{p}%</span>
+                  </div>
+                </div>
+                <div style={{ height:5, background:'var(--b1)', borderRadius:99, overflow:'hidden' }}>
+                  <div style={{ height:'100%', width:`${p}%`, background:m.color, borderRadius:99, transition:'width .5s', opacity:0.9 }} />
+                </div>
+                {gk !== null && (
+                  <div style={{ fontSize:10, fontWeight:700, marginTop:4, textAlign:'right', color:ok?m.color:low?'var(--orange)':'var(--red)' }}>
+                    {gk.toFixed(2)} g/kg
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>
@@ -480,6 +473,7 @@ function MealCard({ meal, userId, customFoods, onEdit, onDelete, onSwapDish, han
       {swapGroup !== null && (
         <SwapDishPicker
           userId={userId}
+          mealName={meal.name}
           currentName={groups[swapGroup]?.subName}
           onClose={() => setSwapGroup(null)}
           onSelect={swapDish}
@@ -493,7 +487,7 @@ function MealCard({ meal, userId, customFoods, onEdit, onDelete, onSwapDish, han
    SWAP DISH PICKER — quick prato-to-prato swap,
    used directly from the meal card (no full edit)
 ───────────────────────────────────────────── */
-function SwapDishPicker({ userId, currentName, onClose, onSelect }) {
+function SwapDishPicker({ userId, mealName, currentName, onClose, onSelect }) {
   const [presets, setPresets] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -501,18 +495,24 @@ function SwapDishPicker({ userId, currentName, onClose, onSelect }) {
     presetService.list(userId).then(setPresets).finally(() => setLoading(false))
   }, [userId])
 
-  const suggestions = presets.length === 0
-    ? Object.values(MEAL_PRESETS).flatMap(cat => cat.options.map(o => ({ ...o, _suggested:true })))
-    : []
+  // Only show dishes that belong to this meal's substitution group (e.g.
+  // Café da manhã ↔ Café da tarde, or Almoço ↔ Jantar). Presets created
+  // before this feature existed have no group and remain visible everywhere.
+  const groupKey = mealGroupKey(mealName)
+  const groupPresets = presets.filter(p => !p.meal_group || p.meal_group === groupKey)
+  const suggestions = groupPresets.length === 0 ? mealPresetSuggestions(groupKey) : []
 
   return (
     <Modal title="Trocar Prato" onClose={onClose}>
+      {mealSubstitutionHint(groupKey) && (
+        <p style={{ fontSize:11, color:'var(--t3)', marginTop:-10, marginBottom:14 }}>{mealSubstitutionHint(groupKey)}</p>
+      )}
       {loading ? <Loader /> : (
         <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-          {presets.length === 0 && suggestions.length === 0 && (
+          {groupPresets.length === 0 && suggestions.length === 0 && (
             <p style={{ fontSize:12, color:'var(--t3)' }}>Nenhum prato cadastrado ainda. Crie opções em "🔁 Adicionar prato" dentro de Editar refeição.</p>
           )}
-          {(presets.length ? presets : suggestions).map(p => {
+          {(groupPresets.length ? groupPresets : suggestions).map(p => {
             const m = sumMacros(p.foods || [])
             const isCurrent = p.name === currentName
             return (
@@ -659,6 +659,7 @@ function MealEditor({ meal, plan, userId, customFoods, onFoodCreated, onSave, on
       {presets && (
         <PresetPicker
           userId={userId} customFoods={customFoods} onFoodCreated={onFoodCreated}
+          mealName={name}
           onClose={() => setPresets(false)}
           onUse={preset => {
             const grouped = preset.foods.map(f => ({ ...f, sub_name: preset.name, sub_icon: preset.icon }))
@@ -670,6 +671,14 @@ function MealEditor({ meal, plan, userId, customFoods, onFoodCreated, onSave, on
       )}
     </div>
   )
+}
+
+/** Short hint shown in the dish pickers explaining which other meal shares
+ *  this same pool of substitute dishes. */
+function mealSubstitutionHint(groupKey) {
+  if (groupKey === 'breakfast_snack') return '🔁 Compartilhado entre Café da manhã e Café da tarde'
+  if (groupKey === 'lunch_dinner')    return '🔁 Compartilhado entre Almoço e Jantar'
+  return null
 }
 
 function groupItemsBySubName(items) {
@@ -849,42 +858,50 @@ function FoodPicker({ userId, customFoods = [], onFoodCreated, onClose, onAdd })
 /* ─────────────────────────────────────────────
    PRESET PICKER
 ───────────────────────────────────────────── */
-function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse }) {
+function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse, mealName }) {
   const { toast } = useApp()
-  const [presets, setPresets] = useState([])
+  const [allPresets, setAllPresets] = useState([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(null)
   const [del,     setDel]     = useState(null)
 
+  const groupKey = mealGroupKey(mealName)
+  // Only dishes belonging to this meal's substitution group (Café da manhã ↔
+  // Café da tarde, or Almoço ↔ Jantar). Presets from before this feature
+  // (no meal_group yet) stay visible everywhere.
+  const presets = allPresets.filter(p => !p.meal_group || p.meal_group === groupKey)
+
   useEffect(() => { load() }, [userId])
   const load = async () => {
-    try { setPresets(await presetService.list(userId)) } finally { setLoading(false) }
+    try { setAllPresets(await presetService.list(userId)) } finally { setLoading(false) }
   }
 
   const { dragIndex, getHandleProps, getItemProps } = useDragSort(presets, async (next) => {
-    setPresets(next)
+    setAllPresets(prev => {
+      const otherIds = new Set(next.map(p => p.id))
+      return [...next, ...prev.filter(p => !otherIds.has(p.id))]
+    })
     await presetService.reorder(next.map(p => p.id))
   })
 
   const duplicate = async (p, e) => {
     e.stopPropagation()
-    try { const d = await presetService.duplicate(userId, p); setPresets(prev => [...prev, d]); toast('Prato duplicado!') }
+    try { const d = await presetService.duplicate(userId, p); setAllPresets(prev => [...prev, d]); toast('Prato duplicado!') }
     catch(err) { toast('Erro: '+err.message) }
   }
 
   const remove = async () => {
-    try { await presetService.delete(del.id); setPresets(p => p.filter(x=>x.id!==del.id)); toast('Prato removido.') }
+    try { await presetService.delete(del.id); setAllPresets(p => p.filter(x=>x.id!==del.id)); toast('Prato removido.') }
     finally { setDel(null) }
   }
 
-  const suggestions = presets.length === 0
-    ? Object.values(MEAL_PRESETS).flatMap(cat => cat.options.map(o => ({ ...o, _suggested:true })))
-    : []
+  const suggestions = presets.length === 0 ? mealPresetSuggestions(groupKey) : []
 
   if (editing) {
     return (
       <PresetEditor
         preset={editing === 'new' ? null : editing}
+        mealGroup={groupKey}
         userId={userId} customFoods={customFoods} onFoodCreated={onFoodCreated}
         onClose={() => setEditing(null)}
         onSaved={async () => { setEditing(null); await load() }}
@@ -894,6 +911,9 @@ function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse }) {
 
   return (
     <Modal title="Meus Pratos" onClose={onClose}>
+      {mealSubstitutionHint(groupKey) && (
+        <p style={{ fontSize:11, color:'var(--t3)', marginTop:-10, marginBottom:14 }}>{mealSubstitutionHint(groupKey)}</p>
+      )}
       <button onClick={() => setEditing('new')}
         style={{ width:'100%', padding:'13px', marginBottom:16, border:'1.5px dashed var(--accent)', borderRadius:'var(--r)', color:'var(--accent)', fontSize:13, fontWeight:700, background:'var(--accent10)', cursor:'pointer' }}>
         + Criar novo prato
@@ -949,7 +969,7 @@ function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse }) {
 /* ─────────────────────────────────────────────
    PRESET EDITOR
 ───────────────────────────────────────────── */
-function PresetEditor({ preset, userId, customFoods, onFoodCreated, onClose, onSaved }) {
+function PresetEditor({ preset, userId, customFoods, onFoodCreated, onClose, onSaved, mealGroup }) {
   const { toast } = useApp()
   const [name,    setName]    = useState(preset?.name || '')
   const [icon,    setIcon]    = useState(preset?.icon || '🍱')
@@ -966,7 +986,7 @@ function PresetEditor({ preset, userId, customFoods, onFoodCreated, onClose, onS
     setSaving(true)
     try {
       if (preset) await presetService.update(preset.id, { name, icon, foods })
-      else        await presetService.create(userId, { name, icon, foods })
+      else        await presetService.create(userId, { name, icon, foods, meal_group: mealGroup || null })
       toast(preset ? 'Opção atualizada!' : 'Opção criada!')
       await onSaved()
     } catch(e) { toast('Erro: '+e.message) } finally { setSaving(false) }

@@ -113,17 +113,17 @@ function GymList({ onSelect }) {
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontWeight:700, fontSize:15, color:'var(--t1)' }}>{g.name}</div>
                   {gymWorkouts[g.id]?.length > 0 ? (
-                    <div style={{ display:'flex', flexWrap:'wrap', gap:5, marginTop:5 }}>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:4, marginTop:4 }}>
                       {gymWorkouts[g.id].map(w => {
                         const c = w.color || 'var(--accent)'
                         return (
                           <span key={w.id} style={{
-                            display:'inline-flex', alignItems:'center', gap:4,
-                            fontSize:10.5, fontWeight:700, color:c,
+                            display:'inline-flex', alignItems:'center', gap:3,
+                            fontSize:10, fontWeight:700, color:c,
                             background:`${c}1f`, border:`1px solid ${c}3d`,
-                            borderRadius:99, padding:'3px 8px 3px 6px', lineHeight:1.3, whiteSpace:'nowrap',
+                            borderRadius:99, padding:'2px 7px 2px 5px', lineHeight:1.35, whiteSpace:'nowrap',
                           }}>
-                            <span style={{ width:6, height:6, borderRadius:'50%', background:c, flexShrink:0 }} />
+                            <span style={{ width:5, height:5, borderRadius:'50%', background:c, flexShrink:0 }} />
                             {w.name}
                           </span>
                         )
