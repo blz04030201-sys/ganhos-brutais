@@ -79,22 +79,5 @@ reabra o app, ou aguarde a atualização automática do `sw.js`).
 | 11 | Tela inicial — sugestão automática | ✅ Já existia (academia/treino do dia); adicionei um seletor rápido "Trocar" |
 | 12 | Revisão geral de UX | ⚠️ Parcial — toquei nos pontos acima; uma varredura completa de espaçamento/animação em todo o app não foi feita nesta leva |
 
----
-
-## Atualização mais recente (rodada "evolução final")
-
-Nesta rodada **não há nenhuma migration para rodar** — tudo foi feito com as
-colunas que já existiam (`sub_name`/`sub_icon` em `meal_items`). Pode ir
-direto para `npm install` → `npm run dev` → testar → `git` → `npm run deploy`.
-
-| # | Item do seu documento | Status |
-|---|---|---|
-| 1 | Remover "Último Treino", enriquecer o card do treino | ✅ As últimas cargas de cada exercício agora aparecem dentro do próprio card "Treino de Hoje" |
-| 2 | Hierarquia Refeição → Prato → Ingredientes | ✅ Reaproveitei a estrutura existente (agora chamada "prato" em toda a interface) |
-| 3 | Gerenciar pratos (criar/editar/apagar/reordenar/ícone) | ✅ Renomear, excluir, escolher ícone e marcar "⭐ prato principal" direto no card do prato. **Imagem de capa**: implementei como escolha de ícone (emoji), não upload de foto — configurar um bucket de Storage no Supabase é um passo extra que preferi não fazer sem sua confirmação. Me avisa se quiser foto de verdade. |
-| 4 | Presets de pratos prontos (Mingau de aveia, Pão com ovo, Crepioca, etc.) | ✅ Adicionados exatamente os exemplos do seu documento (Crepioca, Macarrão à Bolonhesa, Patinho com Arroz, Omelete) |
-| 5 | Lista simplificada (Refeição → prato principal) | ✅ O card colapsado da refeição agora mostra só o prato principal, não todos |
-| 6/7 | Teclado cobrindo botão Salvar, revisão de navegação | ✅ Reforço adicional: viewport com fallback, campo focado rola pra visão automaticamente, e a tela de fundo trava enquanto um formulário/modal está aberto (evita o "salto" que escondia o botão) |
-| 8 | Seção "Minha Dieta" na tela inicial | ✅ Abaixo de "Minhas Academias": refeição → prato principal, sem macros. Toque abre a aba Dieta |
-| 9 | Refinamento geral | ⚠️ Parcial — toquei nos pontos acima; não fiz uma varredura de todo o app nesta rodada |
-
+Se quiser, na próxima rodada posso focar especificamente no item 12 (polimento
+geral) já que os outros 11 estão endereçados.

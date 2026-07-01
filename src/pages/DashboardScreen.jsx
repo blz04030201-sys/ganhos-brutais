@@ -3,7 +3,7 @@ import { useApp } from '../hooks/useAppContext'
 import { gymService, workoutService, exerciseService, logService } from '../services/workouts'
 import { profileService } from '../services/profile'
 import { dietGoalsService, mealService, mealPlanService } from '../services/diet'
-import { todayISO, sumMacros, pickTodaysWorkout } from '../utils/helpers'
+import { todayISO, dateLabel, sumMacros, pickTodaysWorkout } from '../utils/helpers'
 import { setWorkoutIntent } from '../utils/navIntent'
 import { Loader } from '../components/UI'
 
@@ -27,11 +27,18 @@ export default function DashboardScreen({ setTab }) {
   const [exercises,    setExercises]     = useState([])
   const [todayLogs,    setTodayLogs]     = useState([])
   const [recentPRs,    setRecentPRs]     = useState([])
-  const [lastSets,     setLastSets]      = useState({}) // { [exerciseId]: { sets, log_date } } — same source as the Treino tab
+  const [lastWorkoutSummary, setLastWorkoutSummary] = useState([]) // [{name, weight, reps}]
   const [dietTotals,   setDietTotals]    = useState({ cal:0, prot:0, carb:0, fat:0 })
-  const [dietMeals,    setDietMeals]     = useState([])
   const [dietGoals,    setDietGoals]     = useState({ calories:2800, protein:180, carbs:350, fat:80 })
   const [loading,      setLoading]       = useState(true)
+
+  // Log modal state
+  const [logEx,      setLogEx]      = useState(null)
+  const [logSets,    setLogSets]    = useState([])
+  const [logObs,     setLogObs]     = useState('')
+  const [logDate,    setLogDate]    = useState(todayISO())
+  const [logHistory, setLogHistory] = useState([])
+  const [logSaving,  setLogSaving]  = useState(false)
 
   useEffect(() => { if (userId) init() }, [userId])
 
@@ -49,7 +56,6 @@ export default function DashboardScreen({ setTab }) {
       if (plan) {
         const meals = await mealService.listByPlan(plan.id)
         setDietTotals(sumMacros(meals.flatMap(m => m.items || [])))
-        setDietMeals(meals)
       }
 
       // Restore last gym
@@ -79,9 +85,17 @@ export default function DashboardScreen({ setTab }) {
     setExercises(exs)
     setTodayLogs(logs)
 
-    // Last recorded sets per exercise — same source used inside the Treino tab,
-    // shown here too so the workout card is fully self-contained.
-    setLastSets(await logService.listLatestByExerciseIds(exs.map(e => e.id)))
+    // Last workout summary: for each exercise, pick the most recent session (not today)
+    const today = todayISO()
+    const summary = []
+    for (const ex of exs.slice(0, 8)) {
+      const hist = await logService.listByExercise(ex.id)
+      const prev = hist.find(l => l.log_date !== today)
+      if (!prev) continue
+      const top = (prev.sets||[]).reduce((b, s) => (parseFloat(s.weight)||0) > (parseFloat(b?.weight)||0) ? s : b, null)
+      if (top) summary.push({ name: ex.name, weight: top.weight, reps: top.reps, date: prev.log_date })
+    }
+    setLastWorkoutSummary(summary)
 
     // Build recent PRs across all exercises
     const prs = []
@@ -104,7 +118,6 @@ export default function DashboardScreen({ setTab }) {
     setSelectedWk(null)
     setExercises([])
     setTodayLogs([])
-    setLastSets({})
     const ws = await workoutService.listByGym(gym.id)
     setWorkouts(ws)
     const wk = pickTodaysWorkout(ws)
@@ -115,6 +128,41 @@ export default function DashboardScreen({ setTab }) {
   const selectWorkout = async (wk) => {
     setSelectedWk(wk)
     await loadExercises(wk)
+  }
+
+  // Open log modal
+  const openLog = async (ex) => {
+    const hist = await logService.listByExercise(ex.id)
+    setLogHistory(hist)
+    const last = hist[0]
+    if (last) {
+      setLogSets(last.sets.map(s => ({ weight: String(s.weight||''), reps: String(s.reps||'') })))
+      setLogObs(last.log_date === todayISO() ? (last.observation||'') : '')
+    } else {
+      setLogSets(Array.from({ length: ex.valid_sets||2 }, () => ({ weight:'', reps:'' })))
+      setLogObs('')
+    }
+    setLogDate(todayISO())
+    setLogEx(ex)
+  }
+
+  const saveLog = async () => {
+    const filled = logSets.filter(s => s.weight || s.reps)
+    if (!filled.length) { toast('Registre pelo menos uma série.'); return }
+    setLogSaving(true)
+    try {
+      const prW = logHistory.reduce((m, l) =>
+        Math.max(m, ...(l.sets||[]).map(s => parseFloat(s.weight)||0)), 0)
+      const log = await logService.upsertLog(userId, logEx.id, logDate, logObs)
+      await logService.replaceSets(log.id, userId, filled.map(s => ({
+        ...s, is_pr: (parseFloat(s.weight)||0) > prW && prW > 0
+      })))
+      toast('✅ Registrado!')
+      setLogEx(null)
+      const logs = await logService.listByDate(userId, todayISO())
+      setTodayLogs(logs)
+    } catch(e) { toast('Erro: ' + e.message) }
+    finally { setLogSaving(false) }
   }
 
   const getTodayLog = (exId) => todayLogs.find(l => l.exercise_id === exId)
@@ -159,7 +207,6 @@ export default function DashboardScreen({ setTab }) {
           gym={selectedGym}
           wk={selectedWk}
           exercises={exercises}
-          lastSets={lastSets}
           doneCount={doneCount}
           progress={wkProgress}
           gyms={gyms}
@@ -176,6 +223,26 @@ export default function DashboardScreen({ setTab }) {
         <DietCard totals={dietTotals} goals={dietGoals} weight={weight} setTab={setTab} />
       </div>
 
+      {/* ── ÚLTIMO TREINO ─────────────────────────────── */}
+      {lastWorkoutSummary.length > 0 && (
+        <div style={{ margin:'12px 16px 0' }}>
+          <LastWorkoutCard summary={lastWorkoutSummary} onGo={() => { if (selectedGym && selectedWk) { setWorkoutIntent(selectedGym, selectedWk); setTab('workouts') } }} />
+        </div>
+      )}
+
+      {/* ── EXERCISE LIST (se treino selecionado) ─────── */}
+      {selectedWk && exercises.length > 0 && (
+        <div style={{ margin:'12px 16px 0' }}>
+          <ExerciseList
+            exercises={exercises}
+            wk={selectedWk}
+            getTodayLog={getTodayLog}
+            onLog={openLog}
+            setTab={setTab}
+          />
+        </div>
+      )}
+
       {/* ── RECORDES RECENTES ──────────────────────────── */}
       {recentPRs.length > 0 && (
         <div style={{ margin:'12px 16px 0' }}>
@@ -188,20 +255,32 @@ export default function DashboardScreen({ setTab }) {
         <GymSection gyms={gyms} selected={selectedGym} onSelect={selectGym} setTab={setTab} />
       </div>
 
-      {/* ── MINHA DIETA ─────────────────────────────────── */}
-      {dietMeals.length > 0 && (
-        <div style={{ margin:'12px 16px 0' }}>
-          <MyDietSection meals={dietMeals} setTab={setTab} />
-        </div>
-      )}
-
       <div style={{ height:24 }} />
+
+      {/* ── LOG MODAL ──────────────────────────────────── */}
+      {logEx && (
+        <LogModal
+          ex={logEx}
+          sets={logSets}
+          obs={logObs}
+          date={logDate}
+          history={logHistory}
+          saving={logSaving}
+          onClose={() => setLogEx(null)}
+          onSave={saveLog}
+          onSetChange={(i, vals) => setLogSets(p => p.map((x,idx) => idx===i ? {...x,...vals} : x))}
+          onAddSet={() => setLogSets(p => [...p, { weight:'', reps:'' }])}
+          onRemoveSet={(i) => setLogSets(p => p.filter((_,idx) => idx!==i))}
+          onObsChange={setLogObs}
+          onDateChange={setLogDate}
+        />
+      )}
     </div>
   )
 }
 
 // ── WORKOUT CARD ──────────────────────────────────────────────
-function WorkoutCard({ gym, wk, exercises, lastSets, doneCount, progress, gyms, onSelectGym, workouts, onSelectWorkout, onStart, setTab }) {
+function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGym, workouts, onSelectWorkout, onStart, setTab }) {
   const muscleGroups = wk?.display_name?.split(/[+·,]/).map(s => s.trim()).filter(Boolean) || []
   const [switching, setSwitching] = useState(false)
 
@@ -303,28 +382,6 @@ function WorkoutCard({ gym, wk, exercises, lastSets, doneCount, progress, gyms, 
               </div>
             )}
 
-            {/* Últimas cargas registradas — mesma fonte de dados da aba Treino */}
-            {exercises.some(ex => lastSets?.[ex.id]) && (
-              <div style={{ marginBottom:12, display:'flex', flexDirection:'column', gap:6 }}>
-                {exercises.map(ex => {
-                  const last = lastSets?.[ex.id]
-                  if (!last) return null
-                  return (
-                    <div key={ex.id} style={{ display:'flex', alignItems:'center', gap:8 }}>
-                      <span style={{ fontSize:11.5, color:'rgba(255,255,255,0.75)', fontWeight:700, flexShrink:0, minWidth:0, maxWidth:'42%', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ex.name}</span>
-                      <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
-                        {last.sets.map((s, si) => (
-                          <span key={si} style={{ fontSize:10.5, fontWeight:700, color:'#93C5FD', background:'rgba(59,130,246,0.15)', border:'1px solid rgba(59,130,246,0.25)', borderRadius:99, padding:'2px 8px' }}>
-                            {s.weight}×{s.reps}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-
             {/* CTA */}
             <button
               onClick={onStart}
@@ -380,6 +437,35 @@ function WorkoutCard({ gym, wk, exercises, lastSets, doneCount, progress, gyms, 
 }
 
 // ── DIET CARD ─────────────────────────────────────────────────
+function LastWorkoutCard({ summary, onGo }) {
+  const dateStr = summary[0]?.date
+    ? new Date(summary[0].date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday:'short', day:'2-digit', month:'2-digit' })
+    : ''
+  return (
+    <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'14px 16px' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <div style={{ width:28, height:28, borderRadius:8, background:'rgba(99,102,241,0.15)', border:'1px solid rgba(99,102,241,0.25)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14 }}>⏮️</div>
+          <div>
+            <div style={{ fontSize:10, fontWeight:800, color:'var(--purple)', textTransform:'uppercase', letterSpacing:'0.1em' }}>Último Treino</div>
+            {dateStr && <div style={{ fontSize:10, color:'var(--t3)', marginTop:1 }}>{dateStr}</div>}
+          </div>
+        </div>
+        <button onClick={onGo} style={{ fontSize:11, fontWeight:700, color:'var(--accent)', background:'var(--accent10)', border:'1px solid var(--accent20)', borderRadius:99, padding:'5px 12px', cursor:'pointer' }}>
+          Repetir →
+        </button>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+        {summary.slice(0, 6).map((s, i) => (
+          <div key={i} style={{ background:'var(--bg3)', borderRadius:'var(--rsm)', padding:'8px 10px', display:'flex', justifyContent:'space-between', alignItems:'center', gap:6 }}>
+            <span style={{ fontSize:11, color:'var(--t2)', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>{s.name}</span>
+            <span style={{ fontSize:12, fontWeight:800, color:'var(--accent)', flexShrink:0, letterSpacing:'-0.3px' }}>{s.weight}kg<span style={{ fontSize:9, fontWeight:600, color:'var(--t3)' }}>×{s.reps}</span></span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 function DietCard({ totals, goals, weight, setTab }) {
   const pct = (v,g) => g>0 ? Math.min(100, Math.round(v/g*100)) : 0
@@ -462,6 +548,85 @@ function DietCard({ totals, goals, weight, setTab }) {
   )
 }
 
+// ── EXERCISE LIST ─────────────────────────────────────────────
+function ExerciseList({ exercises, wk, getTodayLog, onLog, setTab }) {
+  return (
+    <div>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <div style={{ width:6, height:6, borderRadius:'50%', background:wk.color||'var(--accent)' }} />
+          <span style={{ fontSize:11, fontWeight:800, color:'var(--t2)', textTransform:'uppercase', letterSpacing:'0.08em' }}>
+            {wk.display_name || wk.name}
+          </span>
+        </div>
+        <button onClick={() => setTab('workouts')} style={{ fontSize:11, fontWeight:700, color:'var(--accent)', background:'none', border:'none', cursor:'pointer' }}>
+          Ver todos →
+        </button>
+      </div>
+
+      <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+        {exercises.map(ex => {
+          const log     = getTodayLog(ex.id)
+          const sets    = log?.sets || log?.exercise_sets || []
+          const hasSets = sets.length > 0
+          const vol     = hasSets ? sets.reduce((a,s) => a + (parseFloat(s.weight)||0)*(parseInt(s.reps)||0), 0) : 0
+          const color   = wk.color || 'var(--accent)'
+
+          return (
+            <div key={ex.id} style={{
+              background:'var(--card)',
+              border:`1px solid ${hasSets ? color+'44' : 'var(--b1)'}`,
+              borderRadius:'var(--r)',
+              overflow:'hidden',
+            }}>
+              <div style={{ padding:'11px 13px', display:'flex', alignItems:'center', gap:10 }}>
+                <div style={{
+                  width:9, height:9, borderRadius:'50%', flexShrink:0,
+                  background: hasSets ? '#10B981' : 'var(--b3)',
+                  boxShadow: hasSets ? '0 0 7px #10B981' : 'none',
+                }} />
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontWeight:700, fontSize:13, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ex.name}</div>
+                  <div style={{ fontSize:10, color:'var(--t3)', marginTop:2 }}>
+                    {ex.valid_sets} séries
+                    {hasSets && <span style={{ color:'#10B981', marginLeft:6 }}>✓ {sets.length} feitas · {vol}kg vol</span>}
+                  </div>
+                </div>
+              </div>
+              {hasSets && (
+                <div style={{ padding:'0 13px 9px', display:'flex', gap:6, flexWrap:'wrap' }}>
+                  {sets.map((s,i) => (
+                    <span key={i} style={{
+                      padding:'2px 8px', borderRadius:99, fontSize:10, fontWeight:700,
+                      background: s.is_pr ? 'rgba(245,158,11,0.12)' : `${color}18`,
+                      border:`1px solid ${s.is_pr ? 'rgba(245,158,11,0.3)' : color+'33'}`,
+                      color: s.is_pr ? 'var(--orange)' : color,
+                    }}>
+                      {s.is_pr ? '🏆 ' : ''}{s.weight}kg×{s.reps}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div style={{ display:'flex', borderTop:'1px solid var(--b2)' }}>
+                <button onClick={() => setTab('workouts')}
+                  style={{ flex:1, padding:'8px', fontSize:10, fontWeight:700, color:'var(--t3)', background:'none', border:'none', borderRight:'1px solid var(--b2)', cursor:'pointer' }}>
+                  📊 Histórico
+                </button>
+                <button onClick={() => onLog(ex)}
+                  style={{ flex:1, padding:'8px', fontSize:10, fontWeight:700, cursor:'pointer', border:'none',
+                    color: hasSets ? '#10B981' : 'var(--accent)',
+                    background: hasSets ? 'rgba(16,185,129,0.07)' : 'var(--accent10)' }}>
+                  {hasSets ? '✓ Editar' : '➕ Registrar'}
+                </button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ── PR SECTION ────────────────────────────────────────────────
 function PRSection({ prs }) {
   return (
@@ -486,39 +651,6 @@ function PRSection({ prs }) {
           </div>
         ))}
       </div>
-    </div>
-  )
-}
-
-// ── MEU DIETA (meal → prato principal, resumo simples) ─────────
-function MyDietSection({ meals, setTab }) {
-  const rows = meals.map(m => {
-    const firstDish = (m.items || []).find(it => it.sub_name)
-    return { id: m.id, icon: m.icon, name: m.name, dish: firstDish?.sub_name || null }
-  })
-  return (
-    <div>
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <span style={{ fontSize:16 }}>🥗</span>
-          <span style={{ fontSize:11, fontWeight:800, color:'var(--t2)', textTransform:'uppercase', letterSpacing:'0.08em' }}>Minha Dieta</span>
-        </div>
-        <button onClick={() => setTab('diet')} style={{ fontSize:11, color:'var(--accent)', fontWeight:700, background:'none', border:'none', cursor:'pointer' }}>Ver tudo →</button>
-      </div>
-      <button onClick={() => setTab('diet')}
-        style={{ width:'100%', background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--r)', padding:'4px', display:'flex', flexDirection:'column', cursor:'pointer', textAlign:'left' }}>
-        {rows.map((r, i) => (
-          <div key={r.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 10px', borderBottom: i<rows.length-1 ? '1px solid var(--b2)' : 'none' }}>
-            <span style={{ fontSize:16, flexShrink:0 }}>{r.icon}</span>
-            <span style={{ fontSize:13, fontWeight:700, color:'var(--t1)', flexShrink:0, maxWidth:'40%', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.name}</span>
-            {r.dish ? (
-              <span style={{ fontSize:12, color:'var(--t2)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>→ {r.dish}</span>
-            ) : (
-              <span style={{ fontSize:12, color:'var(--t3)' }}>sem prato definido</span>
-            )}
-          </div>
-        ))}
-      </button>
     </div>
   )
 }
@@ -554,6 +686,76 @@ function GymSection({ gyms, selected, onSelect, setTab }) {
           style={{ flexShrink:0, width:40, height:40, borderRadius:'var(--r)', background:'var(--bg3)', border:'1px solid var(--b1)', fontSize:20, color:'var(--t3)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
           +
         </button>
+      </div>
+    </div>
+  )
+}
+
+// ── LOG MODAL ─────────────────────────────────────────────────
+function LogModal({ ex, sets, obs, date, history, saving, onClose, onSave, onSetChange, onAddSet, onRemoveSet, onObsChange, onDateChange }) {
+  const prW = history.reduce((m, l) =>
+    Math.max(m, ...(l.sets||[]).map(s => parseFloat(s.weight)||0)), 0)
+  const last = history[0]
+
+  return (
+    <div className="modal-overlay" onPointerDown={e => { if (e.target===e.currentTarget) onClose() }}>
+      <div className="modal-sheet">
+        <div className="modal-handle" />
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
+          <div>
+            <h3 style={{ fontSize:17, fontWeight:700 }}>{ex.name}</h3>
+            {prW > 0 && <span className="chip chip-gold" style={{ marginTop:6, display:'inline-block' }}>🏆 PR atual: {prW}kg</span>}
+          </div>
+          <input type="date" value={date} onChange={e => onDateChange(e.target.value)}
+            style={{ background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t1)', padding:'6px 8px', fontSize:12 }} />
+        </div>
+
+        {last && last.log_date !== date && (
+          <div style={{ padding:'10px 12px', background:'var(--bg3)', borderRadius:'var(--r)', border:'1px solid var(--b1)', marginBottom:12 }}>
+            <div className="label" style={{ marginBottom:6 }}>Último treino — {dateLabel(last.log_date)}</div>
+            <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+              {last.sets.map((s,i) => <span key={i} style={{ fontSize:12, color:'var(--t2)', fontWeight:600 }}>S{i+1}: {s.weight}kg×{s.reps}</span>)}
+            </div>
+            {last.observation && <p style={{ fontSize:11, color:'var(--t3)', marginTop:5, fontStyle:'italic' }}>"{last.observation}"</p>}
+          </div>
+        )}
+
+        <p className="label" style={{ marginBottom:10 }}>Séries</p>
+        {sets.map((s,i) => {
+          const isNewPR = (parseFloat(s.weight)||0) > prW && prW > 0
+          return (
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:9 }}>
+              <div style={{ width:26, height:26, borderRadius:'50%', background:'var(--b1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color:'var(--t3)', flexShrink:0 }}>{i+1}</div>
+              <div style={{ position:'relative', flex:1 }}>
+                <input className="inp" type="number" placeholder="kg" inputMode="decimal" value={s.weight}
+                  onChange={e => onSetChange(i, { weight:e.target.value })}
+                  style={{ paddingRight:28, borderColor: isNewPR ? 'var(--orange)' : undefined }} />
+                <span style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)', fontSize:11, color:'var(--t3)' }}>kg</span>
+              </div>
+              <input className="inp" type="text" placeholder="reps" inputMode="numeric" value={s.reps}
+                onChange={e => onSetChange(i, { reps:e.target.value })} style={{ flex:1 }} />
+              {isNewPR && <span style={{ fontSize:14 }}>🏆</span>}
+              {sets.length > 1 && (
+                <button onClick={() => onRemoveSet(i)} style={{ color:'var(--red)', fontSize:16, background:'none', border:'none', cursor:'pointer', flexShrink:0 }}>✕</button>
+              )}
+            </div>
+          )
+        })}
+
+        <button onClick={onAddSet}
+          style={{ width:'100%', padding:'9px', border:'1.5px dashed var(--b3)', borderRadius:'var(--r)', color:'var(--t3)', fontSize:12, background:'none', cursor:'pointer', marginBottom:13 }}>
+          + Série
+        </button>
+
+        <textarea className="inp" rows={2} placeholder="Observação (opcional)..." value={obs}
+          onChange={e => onObsChange(e.target.value)} style={{ resize:'none', marginBottom:13 }} />
+
+        <div style={{ display:'flex', gap:10 }}>
+          <button className="btn btn-ghost btn-full" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-primary btn-full" onClick={onSave} disabled={saving}>
+            {saving ? '⏳ Salvando...' : '✅ Salvar'}
+          </button>
+        </div>
       </div>
     </div>
   )
