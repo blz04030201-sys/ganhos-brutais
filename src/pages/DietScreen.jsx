@@ -100,7 +100,7 @@ export default function DietScreen() {
         ? <Empty icon="🥗" title="Nenhuma refeição" description="Adicione refeições para montar sua dieta."
             action={() => { setEditMeal(null); setView('editMeal') }} actionLabel="+ Adicionar" />
         : (
-          <div style={{ padding:'0 14px', display:'flex', flexDirection:'column', gap:12 }}>
+          <div style={{ padding:'0 14px', display:'flex', flexDirection:'column', gap:8 }}>
             {meals.map((m, i) => (
               <div key={m.id} {...getItemProps(i)}>
                 <MealCard
@@ -112,10 +112,6 @@ export default function DietScreen() {
                   onEdit={() => { setEditMeal(m); setView('editMeal') }}
                   onDelete={async () => { await mealService.delete(m.id); await reloadMeals(); toast('Refeição removida.') }}
                   onSwapDish={async (newItems) => {
-                    // Quick dish swap: persist the meal's full item list (with the
-                    // swapped group replaced) without leaving the meal card / going
-                    // into full "Editar refeição". Everything downstream (macros,
-                    // calories, chart, daily totals) recalculates from `meals`.
                     const rows = newItems.map((item, idx) => ({
                       food_name:item.food_name, amount:item.amount, unit:item.unit,
                       calories:item.calories, protein:item.protein, carbs:item.carbs, fat:item.fat,
@@ -298,14 +294,23 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
 function MealCard({ meal, userId, customFoods, onEdit, onDelete, onSwapDish, handleProps, dragging }) {
   const [open, setOpen] = useState(false)
   const [del,  setDel]  = useState(false)
-  const [swapGroup, setSwapGroup] = useState(null) // group index currently being swapped
+  const [swapGroup, setSwapGroup] = useState(null)
   const items   = meal.items || []
   const totals  = sumMacros(items)
   const groups  = groupItemsBySubName(items)
   const hasOpts = groups.some(g => g.subName)
+  const primaryDish = groups.find(g => g.subName)
 
-  // Replace one grouped "prato" (a contiguous run of items sharing sub_name)
-  // with the foods from a chosen preset, keeping every other item untouched.
+  // Icon background color derived from meal icon name
+  const iconColors = {
+    '☀️':'#F59E0B', '🌅':'#F59E0B', '🌄':'#F59E0B',
+    '🥗':'#10B981', '🥙':'#10B981', '🥦':'#10B981',
+    '💪':'#3B82F6', '⚡':'#6366F1', '🏋️':'#6366F1',
+    '🌙':'#818CF8', '🌃':'#818CF8', '⭐':'#818CF8',
+    '🍎':'#EF4444', '🍊':'#F59E0B', '🫐':'#8B5CF6',
+  }
+  const iconBg = iconColors[meal.icon] || '#3B82F6'
+
   const swapDish = async (preset) => {
     const group = groups[swapGroup]
     if (!group) return
@@ -324,46 +329,53 @@ function MealCard({ meal, userId, customFoods, onEdit, onDelete, onSwapDish, han
   return (
     <div className={dragging ? 'drag-ghost' : ''} style={{
       background:'var(--card)', borderRadius:'var(--rlg)',
-      border:`1px solid ${open ? 'var(--accent)33' : 'var(--b1)'}`,
-      overflow:'hidden',
-      boxShadow: open ? '0 4px 24px rgba(59,130,246,0.08)' : 'none',
-      transition:'border-color .2s, box-shadow .2s'
+      border:`1px solid ${open ? 'var(--accent)44' : 'var(--b1)'}`,
+      overflow:'hidden', transition:'border-color .2s',
     }}>
-      {/* Meal header */}
-      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'14px 14px 14px 10px' }}>
-        <span {...handleProps} style={{ ...handleProps?.style, fontSize:15, color:'var(--t4)', padding:'6px 3px', flexShrink:0 }}>⠿</span>
+      {/* ── COLLAPSED ROW — matches image design ── */}
+      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'13px 12px 13px 8px' }}>
+        <span {...handleProps} style={{ ...handleProps?.style, fontSize:14, color:'var(--t4)', padding:'6px 2px', flexShrink:0 }}>⠿</span>
+
+        {/* Icon circle with color */}
+        <div style={{
+          width:44, height:44, borderRadius:14,
+          background:`${iconBg}22`, border:`1.5px solid ${iconBg}44`,
+          display:'flex', alignItems:'center', justifyContent:'center',
+          fontSize:22, flexShrink:0
+        }}>
+          {meal.icon}
+        </div>
+
+        {/* Name + dish + macros */}
         <button onClick={() => setOpen(o=>!o)}
-          style={{ flex:1, display:'flex', alignItems:'center', gap:12, background:'none', border:'none', cursor:'pointer', textAlign:'left', padding:0, minWidth:0 }}>
-          {/* Icon circle */}
-          <div style={{ width:42, height:42, borderRadius:12, background:'var(--accent10)', border:'1px solid var(--accent20)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:20 }}>
-            {meal.icon}
-          </div>
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontWeight:800, fontSize:15, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{meal.name}</div>
-            {/* Prato(s) visível(is) sem abrir */}
-            {!open && hasOpts && (
-              <div style={{ display:'flex', flexWrap:'wrap', gap:3, marginTop:3 }}>
-                {groups.filter(g=>g.subName).slice(0,2).map((g,i) => (
-                  <span key={i} style={{ fontSize:11, color:'var(--t2)', fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:160 }}>
-                    {g.subIcon && g.subIcon+' '}{g.subName}
-                  </span>
-                ))}
-                {groups.filter(g=>g.subName).length > 2 && (
-                  <span style={{ fontSize:11, color:'var(--t3)' }}>+{groups.filter(g=>g.subName).length-2}</span>
-                )}
-              </div>
-            )}
-            <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:3 }}>
-              <span style={{ fontSize:12, fontWeight:700, color:'var(--accent)' }}>{Math.round(totals.cal)} kcal</span>
-              <span style={{ fontSize:11, color:'var(--b3)' }}>·</span>
-              <span style={{ fontSize:11, color:'var(--t3)' }}>P:{Math.round(totals.prot)}g · C:{Math.round(totals.carb)}g · G:{Math.round(totals.fat)}g</span>
+          style={{ flex:1, display:'flex', flexDirection:'column', gap:1, background:'none', border:'none', cursor:'pointer', textAlign:'left', padding:0, minWidth:0 }}>
+          <div style={{ fontWeight:800, fontSize:15, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', lineHeight:1.3 }}>{meal.name}</div>
+          {primaryDish && (
+            <div style={{ fontSize:12, color:'var(--t2)', fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+              {primaryDish.subIcon ? primaryDish.subIcon+' ' : ''}{primaryDish.subName}
             </div>
+          )}
+          {/* Macro chips row */}
+          <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:3, flexWrap:'wrap' }}>
+            <span style={{ fontSize:11, fontWeight:800, color:'var(--accent)' }}>{Math.round(totals.cal)} kcal</span>
+            {totals.prot > 0 && <>
+              <span style={{ fontSize:10, color:'var(--t4)' }}>·</span>
+              <span style={{ fontSize:10, color:'#EF4444', fontWeight:700 }}>P:{Math.round(totals.prot)}g</span>
+              <span style={{ fontSize:10, color:'var(--t4)' }}>·</span>
+              <span style={{ fontSize:10, color:'#F59E0B', fontWeight:700 }}>C:{Math.round(totals.carb)}g</span>
+              <span style={{ fontSize:10, color:'var(--t4)' }}>·</span>
+              <span style={{ fontSize:10, color:'#2DD4BF', fontWeight:700 }}>G:{Math.round(totals.fat)}g</span>
+            </>}
           </div>
-          <span style={{ color:'var(--t3)', fontSize:14, transform:open?'rotate(180deg)':'none', transition:'.2s', flexShrink:0 }}>⌄</span>
+        </button>
+
+        {/* Chevron */}
+        <button onClick={() => setOpen(o=>!o)} style={{ background:'none', border:'none', cursor:'pointer', padding:'4px 2px', flexShrink:0 }}>
+          <span style={{ color:'var(--t3)', fontSize:16, display:'block', transform:open?'rotate(90deg)':'none', transition:'.2s' }}>›</span>
         </button>
       </div>
 
-      {/* Expanded content */}
+      {/* ── EXPANDED CONTENT ── */}
       {open && (
         <div style={{ borderTop:'1px solid var(--b2)' }}>
           {items.length === 0 ? (
@@ -373,7 +385,6 @@ function MealCard({ meal, userId, customFoods, onEdit, onDelete, onSwapDish, han
               {groups.map((group, gi) => {
                 const gTotals = sumMacros(group.entries.map(e => e.item))
                 if (!group.subName) {
-                  // Plain ungrouped items
                   return (
                     <div key={gi} style={{ background:'var(--bg3)', borderRadius:'var(--r)', padding:'10px 12px', border:'1px solid var(--b2)' }}>
                       <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
@@ -397,15 +408,8 @@ function MealCard({ meal, userId, customFoods, onEdit, onDelete, onSwapDish, han
                     </div>
                   )
                 }
-
-                // Grouped option/substitution — prominent nested card
                 return (
-                  <div key={gi} style={{
-                    background:'var(--bg2)', borderRadius:'var(--r)',
-                    border:'1px solid var(--b1)', borderLeft:'3px solid var(--accent)',
-                    overflow:'hidden'
-                  }}>
-                    {/* Option header */}
+                  <div key={gi} style={{ background:'var(--bg2)', borderRadius:'var(--r)', border:'1px solid var(--b1)', borderLeft:'3px solid var(--accent)', overflow:'hidden' }}>
                     <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderBottom:'1px solid var(--b2)', background:'var(--bg3)' }}>
                       {group.subIcon && <span style={{ fontSize:18 }}>{group.subIcon}</span>}
                       <div style={{ flex:1 }}>
@@ -423,8 +427,6 @@ function MealCard({ meal, userId, customFoods, onEdit, onDelete, onSwapDish, han
                         </button>
                       )}
                     </div>
-
-                    {/* Ingredients */}
                     <div style={{ padding:'10px 12px', display:'flex', flexDirection:'column', gap:6 }}>
                       {group.entries.map(({ item }) => (
                         <div key={item.id} style={{ display:'flex', alignItems:'center', gap:7 }}>
@@ -435,14 +437,8 @@ function MealCard({ meal, userId, customFoods, onEdit, onDelete, onSwapDish, han
                         </div>
                       ))}
                     </div>
-
-                    {/* Macro footer */}
                     <div style={{ display:'flex', gap:0, borderTop:'1px solid var(--b2)', background:'var(--bg3)' }}>
-                      {[
-                        { l:'P', v:gTotals.prot, c:'#EF4444' },
-                        { l:'C', v:gTotals.carb, c:'#F59E0B' },
-                        { l:'G', v:gTotals.fat,  c:'#2DD4BF' },
-                      ].map(({ l, v, c }, i) => (
+                      {[{ l:'P', v:gTotals.prot, c:'#EF4444' }, { l:'C', v:gTotals.carb, c:'#F59E0B' }, { l:'G', v:gTotals.fat, c:'#2DD4BF' }].map(({ l, v, c }, i) => (
                         <div key={l} style={{ flex:1, padding:'8px 0', textAlign:'center', borderRight:i<2?'1px solid var(--b2)':'none' }}>
                           <div style={{ fontSize:13, fontWeight:800, color:c }}>{Math.round(v)}g</div>
                           <div style={{ fontSize:9, color:'var(--t3)' }}>{l}</div>
@@ -454,8 +450,6 @@ function MealCard({ meal, userId, customFoods, onEdit, onDelete, onSwapDish, han
               })}
             </div>
           )}
-
-          {/* Actions */}
           <div style={{ display:'flex', borderTop:'1px solid var(--b1)' }}>
             <button onClick={() => setDel(true)}
               style={{ flex:1, padding:'11px', fontSize:12, color:'var(--red)', background:'none', border:'none', borderRight:'1px solid var(--b1)', cursor:'pointer', fontWeight:600 }}>
@@ -471,17 +465,29 @@ function MealCard({ meal, userId, customFoods, onEdit, onDelete, onSwapDish, han
 
       {del && <Confirm message={`Excluir "${meal.name}"?`} onConfirm={onDelete} onCancel={() => setDel(false)} />}
       {swapGroup !== null && (
-        <SwapDishPicker
-          userId={userId}
-          mealName={meal.name}
-          currentName={groups[swapGroup]?.subName}
-          onClose={() => setSwapGroup(null)}
-          onSelect={swapDish}
-        />
+        <SwapDishPicker userId={userId} mealName={meal.name} currentName={groups[swapGroup]?.subName}
+          onClose={() => setSwapGroup(null)} onSelect={swapDish} />
       )}
     </div>
   )
 }
+
+  // Replace one grouped "prato" (a contiguous run of items sharing sub_name)
+  // with the foods from a chosen preset, keeping every other item untouched.
+  const swapDish = async (preset) => {
+    const group = groups[swapGroup]
+    if (!group) return
+    const startIdx = group.entries[0].index
+    const endIdx = group.entries[group.entries.length - 1].index
+    const newGroupItems = (preset.foods || []).map(f => ({
+      food_name: f.food_name, amount: f.amount, unit: f.unit,
+      calories: f.calories, protein: f.protein, carbs: f.carbs, fat: f.fat,
+      sub_name: preset.name, sub_icon: preset.icon,
+    }))
+    const newItems = [...items.slice(0, startIdx), ...newGroupItems, ...items.slice(endIdx + 1)]
+    setSwapGroup(null)
+    await onSwapDish(newItems)
+  }
 
 /* ─────────────────────────────────────────────
    SWAP DISH PICKER — quick prato-to-prato swap,

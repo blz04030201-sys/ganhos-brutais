@@ -113,15 +113,15 @@ function GymList({ onSelect }) {
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontWeight:700, fontSize:15, color:'var(--t1)' }}>{g.name}</div>
                   {gymWorkouts[g.id]?.length > 0 ? (
-                    <div style={{ display:'flex', flexWrap:'wrap', gap:4, marginTop:4 }}>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:3, marginTop:4, alignItems:'center' }}>
                       {gymWorkouts[g.id].map(w => {
                         const c = w.color || 'var(--accent)'
                         return (
                           <span key={w.id} style={{
                             display:'inline-flex', alignItems:'center', gap:3,
                             fontSize:10, fontWeight:700, color:c,
-                            background:`${c}1f`, border:`1px solid ${c}3d`,
-                            borderRadius:99, padding:'2px 7px 2px 5px', lineHeight:1.35, whiteSpace:'nowrap',
+                            background:`${c}18`, border:`1px solid ${c}30`,
+                            borderRadius:99, padding:'1px 6px 1px 4px', lineHeight:1.4, whiteSpace:'nowrap',
                           }}>
                             <span style={{ width:5, height:5, borderRadius:'50%', background:c, flexShrink:0 }} />
                             {w.name}
@@ -133,8 +133,8 @@ function GymList({ onSelect }) {
                     <div style={{ color:'var(--t3)', fontSize:12, marginTop:2 }}>Toque para ver treinos →</div>
                   )}
                 </div>
-                <button onClick={e => openEdit(g, e)} style={{ color:'var(--t2)', fontSize:18, padding:6, background:'none', border:'none', cursor:'pointer' }}>✏️</button>
-                <button onClick={e => { e.stopPropagation(); setDel(g) }} style={{ color:'var(--red)', fontSize:18, padding:6, background:'none', border:'none', cursor:'pointer' }}>🗑️</button>
+                <button onClick={e => openEdit(g, e)} style={{ color:'var(--t3)', fontSize:15, padding:'5px 4px', background:'none', border:'none', cursor:'pointer', flexShrink:0 }}>✏️</button>
+                <button onClick={e => { e.stopPropagation(); setDel(g) }} style={{ color:'var(--t3)', fontSize:15, padding:'5px 4px', background:'none', border:'none', cursor:'pointer', flexShrink:0 }}>🗑️</button>
               </div>
             ))}
           </div>
