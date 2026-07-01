@@ -353,10 +353,10 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
               >
                 <div style={{ padding:'10px 12px 10px 8px', display:'flex', alignItems:'flex-start', gap:8 }}>
                   <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:15, color:'var(--t4)', padding:'6px 3px', flexShrink:0, marginTop:1 }}>⠿</span>
-                  {/* Left: name */}
+                  {/* Left: name + séries válidas sempre visíveis */}
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontWeight:700, fontSize:14, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:2 }}>{ex.name}</div>
-                    {!last && <div style={{ color:'var(--t3)', fontSize:11 }}>{ex.valid_sets} séries válidas · sem histórico</div>}
+                    <div style={{ color:'var(--t3)', fontSize:11 }}>{ex.valid_sets} série{ex.valid_sets !== 1 ? 's' : ''} válida{ex.valid_sets !== 1 ? 's' : ''}</div>
                   </div>
                   {/* Right: last sets in blue, compact column */}
                   {last && (

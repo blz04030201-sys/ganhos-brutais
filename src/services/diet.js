@@ -7,18 +7,37 @@ export const dietGoalsService = {
       .from('diet_goals')
       .select('*')
       .eq('user_id', userId)
-      .single()
+      .maybeSingle()
     return data || { calories: 2800, protein: 180, carbs: 350, fat: 80 }
   },
 
   async upsert(userId, goals) {
-    const { data, error } = await supabase
+    // Try update first; if no row exists, insert. This avoids the duplicate
+    // key error that occurs when .upsert() can't resolve the conflict target.
+    const { data: existing } = await supabase
       .from('diet_goals')
-      .upsert({ user_id: userId, ...goals, updated_at: new Date().toISOString() })
-      .select()
-      .single()
-    if (error) throw error
-    return data
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (existing?.id) {
+      const { data, error } = await supabase
+        .from('diet_goals')
+        .update({ ...goals, updated_at: new Date().toISOString() })
+        .eq('id', existing.id)
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    } else {
+      const { data, error } = await supabase
+        .from('diet_goals')
+        .insert({ user_id: userId, ...goals, updated_at: new Date().toISOString() })
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    }
   },
 }
 

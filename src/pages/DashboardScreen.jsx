@@ -207,6 +207,13 @@ export default function DashboardScreen({ setTab }) {
         />
       </div>
 
+      {/* ── RESUMO DO TREINO ───────────────────────────── */}
+      {selectedWk && exercises.length > 0 && (
+        <div style={{ margin:'12px 16px 0' }}>
+          <WorkoutSummary exercises={exercises} wk={selectedWk} />
+        </div>
+      )}
+
       {/* ── DIETA CARD ─────────────────────────────────── */}
       <div style={{ margin:'12px 16px 0' }}>
         <DietCard totals={dietTotals} goals={dietGoals} weight={weight} setTab={setTab} />
@@ -356,11 +363,6 @@ function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGy
               </div>
             )}
 
-            {/* Last loads inside the card */}
-            {exercises.length > 0 && !switching && (
-              <LastLoadsInCard exercises={exercises} />
-            )}
-
             {/* CTA */}
             <button
               onClick={onStart}
@@ -458,7 +460,66 @@ function MinhaDietaCard({ meals, setTab }) {
   )
 }
 
-// ── LAST LOADS INSIDE WORKOUT CARD ────────────────────────────
+// ── WORKOUT SUMMARY (seção abaixo do card azul) ───────────────
+function WorkoutSummary({ exercises, wk }) {
+  const [lastSets, setLastSets] = useState({})
+  const [loaded,   setLoaded]   = useState(false)
+
+  useEffect(() => {
+    if (!exercises.length) return
+    logService.listLatestByExerciseIds(exercises.map(e => e.id))
+      .then(d => { setLastSets(d); setLoaded(true) })
+      .catch(() => setLoaded(true))
+  }, [exercises])
+
+  const muscleGroups = wk?.display_name?.split(/[+·,]/).map(s => s.trim()).filter(Boolean) || []
+
+  return (
+    <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'14px 16px' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
+        <div style={{ width:28, height:28, borderRadius:8, background:`${wk.color||'var(--accent)'}22`, border:`1px solid ${wk.color||'var(--accent)'}44`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14 }}>📋</div>
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:10, fontWeight:800, color:wk.color||'var(--accent)', textTransform:'uppercase', letterSpacing:'0.1em' }}>Resumo do Treino</div>
+          {muscleGroups.length > 0 && (
+            <div style={{ fontSize:11, color:'var(--t3)', marginTop:1 }}>{muscleGroups.join(' · ')}</div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        {exercises.map(ex => {
+          const last = lastSets[ex.id]
+          return (
+            <div key={ex.id}>
+              <div style={{ fontSize:13, fontWeight:700, color:'var(--t1)', marginBottom: last ? 4 : 0 }}>{ex.name}</div>
+              {last && last.sets?.length > 0 ? (
+                <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                  {last.sets.map((s, si) => (
+                    <div key={si} style={{ display:'flex', alignItems:'center', gap:6 }}>
+                      <span style={{ fontSize:10, color:'var(--t3)', fontWeight:600, minWidth:16 }}>{si+1}ª</span>
+                      <span style={{ fontSize:13, fontWeight:700, color:'var(--t2)' }}>
+                        {s.weight}<span style={{ fontSize:10, color:'var(--t3)' }}>kg</span>
+                        {' '}<span style={{ fontSize:11, color:'var(--t3)' }}>×</span>{' '}
+                        {s.reps}
+                      </span>
+                      {s.is_pr && <span style={{ fontSize:10, color:'var(--orange)' }}>🏆</span>}
+                    </div>
+                  ))}
+                </div>
+              ) : loaded ? (
+                <span style={{ fontSize:11, color:'var(--t3)' }}>Sem registro anterior</span>
+              ) : (
+                <span style={{ fontSize:11, color:'var(--t3)' }}>—</span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── LAST LOADS INSIDE WORKOUT CARD (mantido mas não mais usado no card azul) ──
 function LastLoadsInCard({ exercises }) {
   const [lastSets, setLastSets] = useState({})
   useEffect(() => {
