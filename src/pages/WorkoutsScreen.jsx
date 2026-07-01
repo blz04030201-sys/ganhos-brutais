@@ -37,6 +37,7 @@ export default function WorkoutsScreen() {
 function GymList({ onSelect }) {
   const { userId, toast } = useApp()
   const [gyms,    setGyms]    = useState([])
+  const [gymWorkouts, setGymWorkouts] = useState({})
   const [loading, setLoading] = useState(true)
   const [modal,   setModal]   = useState(false)
   const [editing, setEditing] = useState(null)
@@ -45,7 +46,15 @@ function GymList({ onSelect }) {
 
   useEffect(() => { load() }, [userId])
   const load = async () => {
-    try { setGyms(await gymService.list(userId)) } finally { setLoading(false) }
+    try {
+      const gs = await gymService.list(userId)
+      setGyms(gs)
+      // Load the workouts for every gym so we can show them as small tags
+      // right on the gym card, in the exact order they were created.
+      const map = {}
+      await Promise.all(gs.map(async g => { map[g.id] = await workoutService.listByGym(g.id) }))
+      setGymWorkouts(map)
+    } finally { setLoading(false) }
   }
 
   const { dragIndex, getHandleProps, getItemProps } = useDragSort(gyms, async (next) => {
@@ -101,9 +110,28 @@ function GymList({ onSelect }) {
               >
                 <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:18, color:'var(--t3)', padding:'8px 4px' }}>☰</span>
                 <span style={{ fontSize:22, width:34, height:34, borderRadius:10, background:`${(g.color||'var(--accent)')}1f`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{g.icon}</span>
-                <div style={{ flex:1 }}>
+                <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontWeight:700, fontSize:15, color:'var(--t1)' }}>{g.name}</div>
-                  <div style={{ color:'var(--t3)', fontSize:12, marginTop:2 }}>Toque para ver treinos →</div>
+                  {gymWorkouts[g.id]?.length > 0 ? (
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:5, marginTop:5 }}>
+                      {gymWorkouts[g.id].map(w => {
+                        const c = w.color || 'var(--accent)'
+                        return (
+                          <span key={w.id} style={{
+                            display:'inline-flex', alignItems:'center', gap:4,
+                            fontSize:10.5, fontWeight:700, color:c,
+                            background:`${c}1f`, border:`1px solid ${c}3d`,
+                            borderRadius:99, padding:'3px 8px 3px 6px', lineHeight:1.3, whiteSpace:'nowrap',
+                          }}>
+                            <span style={{ width:6, height:6, borderRadius:'50%', background:c, flexShrink:0 }} />
+                            {w.name}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div style={{ color:'var(--t3)', fontSize:12, marginTop:2 }}>Toque para ver treinos →</div>
+                  )}
                 </div>
                 <button onClick={e => openEdit(g, e)} style={{ color:'var(--t2)', fontSize:18, padding:6, background:'none', border:'none', cursor:'pointer' }}>✏️</button>
                 <button onClick={e => { e.stopPropagation(); setDel(g) }} style={{ color:'var(--red)', fontSize:18, padding:6, background:'none', border:'none', cursor:'pointer' }}>🗑️</button>

@@ -105,10 +105,27 @@ export default function DietScreen() {
               <div key={m.id} {...getItemProps(i)}>
                 <MealCard
                   meal={m}
+                  userId={userId}
+                  customFoods={customFoods}
                   handleProps={getHandleProps(i)}
                   dragging={dragIndex === i}
                   onEdit={() => { setEditMeal(m); setView('editMeal') }}
                   onDelete={async () => { await mealService.delete(m.id); await reloadMeals(); toast('Refeição removida.') }}
+                  onSwapDish={async (newItems) => {
+                    // Quick dish swap: persist the meal's full item list (with the
+                    // swapped group replaced) without leaving the meal card / going
+                    // into full "Editar refeição". Everything downstream (macros,
+                    // calories, chart, daily totals) recalculates from `meals`.
+                    const rows = newItems.map((item, idx) => ({
+                      food_name:item.food_name, amount:item.amount, unit:item.unit,
+                      calories:item.calories, protein:item.protein, carbs:item.carbs, fat:item.fat,
+                      sort_order:idx, sub_group:null, sub_option:null,
+                      sub_name: item.sub_name || null, sub_icon: item.sub_icon || null,
+                    }))
+                    await mealItemService.replaceItems(m.id, userId, rows)
+                    await reloadMeals()
+                    toast('Prato trocado!')
+                  }}
                 />
               </div>
             ))}
@@ -136,8 +153,8 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
     { label:'Gordura',     key:'fat',  val:totals.fat||0,  goal:goals.fat,     color:'#2DD4BF', cal:fatCal,  min:0.8, max:1.2 },
   ]
 
-  // Donut SVG segments
-  const buildDonut = (vals, R=42, stroke=9) => {
+  // Donut SVG segments — represents the *caloric distribution* between macros only.
+  const buildDonut = (vals, R=42) => {
     const total = vals.reduce((a,b)=>a+b,0); if(!total) return []
     const circ = 2*Math.PI*R; let off = 0
     return vals.map((v,i) => {
@@ -150,37 +167,38 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
   const R=42, CX=50, CY=50, circ=2*Math.PI*R
 
   return (
-    <div style={{ margin:'0 14px 6px' }}>
-      {/* Main kcal card */}
-      <div style={{ background:'linear-gradient(135deg, #0c0c1c 0%, #0e0e20 100%)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'18px 20px 16px', marginBottom:10, position:'relative', overflow:'hidden' }}>
-        {/* Accent glow */}
+    <div style={{ margin:'0 14px 6px', display:'flex', flexDirection:'column', gap:10 }}>
+
+      {/* ── CARD 1: META DIÁRIA — quanto falta para atingir a meta ── */}
+      <div style={{ background:'linear-gradient(135deg, #0c0c1c 0%, #0e0e20 100%)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'18px 20px 16px', position:'relative', overflow:'hidden' }}>
         <div style={{ position:'absolute', top:-40, right:-40, width:120, height:120, borderRadius:'50%', background:'radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%)', pointerEvents:'none' }} />
+
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+          <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'var(--t3)', textTransform:'uppercase' }}>Meta Diária</div>
+          <button onClick={onGoals} style={{ fontSize:10, fontWeight:700, color:'var(--accent)', background:'none', border:'none', cursor:'pointer', padding:0 }}>Editar ⚙️</button>
+        </div>
 
         <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:14 }}>
           <div>
-            <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'var(--t3)', textTransform:'uppercase', marginBottom:4 }}>Consumido hoje</div>
             <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
               <span style={{ fontSize:42, fontWeight:900, color:'var(--t1)', lineHeight:1, letterSpacing:'-1px' }}>{Math.round(cal)}</span>
-              <span style={{ fontSize:14, color:'var(--t3)', fontWeight:600 }}>kcal</span>
+              <span style={{ fontSize:14, color:'var(--t3)', fontWeight:600 }}>/ {goals.calories} kcal</span>
             </div>
             <div style={{ fontSize:12, color: kcalPct >= 100 ? '#10B981' : kcalLeft > 0 ? 'var(--t3)' : 'var(--orange)', marginTop:4 }}>
-              {kcalPct >= 100 ? '✓ Meta atingida' : `Faltam ${Math.round(Math.max(0,kcalLeft))} kcal`}
+              {kcalPct >= 100 ? '✓ Meta atingida' : `Faltam ${Math.round(Math.max(0,kcalLeft))} kcal para a meta`}
             </div>
           </div>
 
-          {/* Donut */}
+          {/* Single-tone ring: goal-attainment % only (not macro distribution) */}
           <div style={{ position:'relative', flexShrink:0 }}>
-            <svg width="84" height="84" viewBox="0 0 100 100">
+            <svg width="72" height="72" viewBox="0 0 100 100">
               <circle cx={CX} cy={CY} r={R} fill="none" stroke="var(--b1)" strokeWidth="9" />
-              {segs.length ? segs.map((s,i) => (
-                <circle key={i} cx={CX} cy={CY} r={R} fill="none"
-                  stroke={s.color} strokeWidth="9"
-                  strokeDasharray={`${s.dash.toFixed(2)} ${s.gap.toFixed(2)}`}
-                  strokeDashoffset={-s.offset + circ/4}
-                  style={{ transition:'stroke-dasharray .5s' }} />
-              )) : null}
-              <text x={CX} y={CY-4} textAnchor="middle" fill="white" fontSize="13" fontWeight="800">{kcalPct}%</text>
-              <text x={CX} y={CY+9} textAnchor="middle" fill="#4B5563" fontSize="8">meta</text>
+              <circle cx={CX} cy={CY} r={R} fill="none"
+                stroke={kcalPct>=100?'#10B981':'#3B82F6'} strokeWidth="9" strokeLinecap="round"
+                strokeDasharray={`${(kcalPct/100*circ).toFixed(2)} ${circ.toFixed(2)}`}
+                strokeDashoffset={circ/4}
+                style={{ transition:'stroke-dasharray .5s' }} />
+              <text x={CX} y={CY+5} textAnchor="middle" fill="white" fontSize="17" fontWeight="800">{kcalPct}%</text>
             </svg>
           </div>
         </div>
@@ -190,22 +208,16 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
           <div style={{ height:'100%', width:`${kcalPct}%`, background:`linear-gradient(90deg, #3B82F6, ${kcalPct>=100?'#10B981':'#818CF8'})`, borderRadius:99, transition:'width .5s' }} />
         </div>
 
-        {/* Macro bars */}
+        {/* Per-macro goal bars — value vs goal only, no caloric % here */}
         <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
           {macros.map(m => {
             const p = pct(m.val, m.goal)
-            const calPct = macTotal > 0 ? Math.round(m.cal / macTotal * 100) : 0
             return (
               <div key={m.label}>
                 <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:7 }}>
                     <div style={{ width:8, height:8, borderRadius:'50%', background:m.color }} />
                     <span style={{ fontSize:12, fontWeight:600, color:'var(--t2)' }}>{m.label}</span>
-                    {m.cal > 0 && (
-                      <span style={{ fontSize:10, fontWeight:700, color:m.color, background:m.color+'18', border:`1px solid ${m.color}33`, borderRadius:99, padding:'1px 6px' }}>
-                        {calPct}% kcal
-                      </span>
-                    )}
                   </div>
                   <div style={{ display:'flex', alignItems:'baseline', gap:3 }}>
                     <span style={{ fontSize:13, fontWeight:800, color:'var(--t1)' }}>{Math.round(m.val)}g</span>
@@ -222,7 +234,7 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
         </div>
       </div>
 
-      {/* Macro chips row */}
+      {/* Grams + g/kg chips row (belongs to "meta diária" — no % here either) */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8 }}>
         {macros.map(m => {
           const gk = weight ? m.val/weight : null
@@ -246,6 +258,43 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
           )
         })}
       </div>
+
+      {/* ── CARD 2: DISTRIBUIÇÃO DA DIETA — participação calórica de cada macro ── */}
+      <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'16px 18px' }}>
+        <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'var(--t3)', textTransform:'uppercase', marginBottom:2 }}>Distribuição da Dieta</div>
+        <div style={{ fontSize:11, color:'var(--t3)', marginBottom:14 }}>Participação calórica de cada macronutriente hoje</div>
+
+        <div style={{ display:'flex', alignItems:'center', gap:18 }}>
+          {/* Pie chart — pure macro-distribution, unrelated to any goal */}
+          <div style={{ position:'relative', flexShrink:0 }}>
+            <svg width="90" height="90" viewBox="0 0 100 100">
+              <circle cx={CX} cy={CY} r={R} fill="none" stroke="var(--b1)" strokeWidth="14" />
+              {segs.map((s,i) => (
+                <circle key={i} cx={CX} cy={CY} r={R} fill="none"
+                  stroke={s.color} strokeWidth="14"
+                  strokeDasharray={`${s.dash.toFixed(2)} ${s.gap.toFixed(2)}`}
+                  strokeDashoffset={-s.offset + circ/4}
+                  style={{ transition:'stroke-dasharray .5s' }} />
+              ))}
+              {!segs.length && <text x={CX} y={CY+4} textAnchor="middle" fill="var(--t3)" fontSize="10">sem dados</text>}
+            </svg>
+          </div>
+
+          {/* Legend: % of calories per macro */}
+          <div style={{ flex:1, display:'flex', flexDirection:'column', gap:9 }}>
+            {macros.map(m => {
+              const calPct = macTotal > 0 && segs.length ? Math.round(m.cal / macTotal * 100) : 0
+              return (
+                <div key={m.label} style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <div style={{ width:9, height:9, borderRadius:'50%', background:m.color, flexShrink:0 }} />
+                  <span style={{ fontSize:12.5, color:'var(--t2)', fontWeight:600, flex:1 }}>{m.label}</span>
+                  <span style={{ fontSize:14, fontWeight:800, color:m.color }}>{calPct}%</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -253,13 +302,31 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
 /* ─────────────────────────────────────────────
    MEAL CARD — premium hierarchical layout
 ───────────────────────────────────────────── */
-function MealCard({ meal, onEdit, onDelete, handleProps, dragging }) {
+function MealCard({ meal, userId, customFoods, onEdit, onDelete, onSwapDish, handleProps, dragging }) {
   const [open, setOpen] = useState(false)
   const [del,  setDel]  = useState(false)
+  const [swapGroup, setSwapGroup] = useState(null) // group index currently being swapped
   const items   = meal.items || []
   const totals  = sumMacros(items)
   const groups  = groupItemsBySubName(items)
   const hasOpts = groups.some(g => g.subName)
+
+  // Replace one grouped "prato" (a contiguous run of items sharing sub_name)
+  // with the foods from a chosen preset, keeping every other item untouched.
+  const swapDish = async (preset) => {
+    const group = groups[swapGroup]
+    if (!group) return
+    const startIdx = group.entries[0].index
+    const endIdx = group.entries[group.entries.length - 1].index
+    const newGroupItems = (preset.foods || []).map(f => ({
+      food_name: f.food_name, amount: f.amount, unit: f.unit,
+      calories: f.calories, protein: f.protein, carbs: f.carbs, fat: f.fat,
+      sub_name: preset.name, sub_icon: preset.icon,
+    }))
+    const newItems = [...items.slice(0, startIdx), ...newGroupItems, ...items.slice(endIdx + 1)]
+    setSwapGroup(null)
+    await onSwapDish(newItems)
+  }
 
   return (
     <div className={dragging ? 'drag-ghost' : ''} style={{
@@ -356,6 +423,12 @@ function MealCard({ meal, onEdit, onDelete, handleProps, dragging }) {
                         <div style={{ fontSize:13, fontWeight:800, color:'var(--accent)' }}>{Math.round(gTotals.cal)}</div>
                         <div style={{ fontSize:9, color:'var(--t3)' }}>kcal</div>
                       </div>
+                      {onSwapDish && (
+                        <button onClick={e => { e.stopPropagation(); setSwapGroup(gi) }}
+                          style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, fontWeight:700, color:'var(--accent)', background:'var(--accent10)', border:'1px solid var(--accent20)', borderRadius:99, padding:'5px 10px', cursor:'pointer', flexShrink:0, marginLeft:2 }}>
+                          🔄 Trocar
+                        </button>
+                      )}
                     </div>
 
                     {/* Ingredients */}
@@ -404,7 +477,64 @@ function MealCard({ meal, onEdit, onDelete, handleProps, dragging }) {
       )}
 
       {del && <Confirm message={`Excluir "${meal.name}"?`} onConfirm={onDelete} onCancel={() => setDel(false)} />}
+      {swapGroup !== null && (
+        <SwapDishPicker
+          userId={userId}
+          currentName={groups[swapGroup]?.subName}
+          onClose={() => setSwapGroup(null)}
+          onSelect={swapDish}
+        />
+      )}
     </div>
+  )
+}
+
+/* ─────────────────────────────────────────────
+   SWAP DISH PICKER — quick prato-to-prato swap,
+   used directly from the meal card (no full edit)
+───────────────────────────────────────────── */
+function SwapDishPicker({ userId, currentName, onClose, onSelect }) {
+  const [presets, setPresets] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    presetService.list(userId).then(setPresets).finally(() => setLoading(false))
+  }, [userId])
+
+  const suggestions = presets.length === 0
+    ? Object.values(MEAL_PRESETS).flatMap(cat => cat.options.map(o => ({ ...o, _suggested:true })))
+    : []
+
+  return (
+    <Modal title="Trocar Prato" onClose={onClose}>
+      {loading ? <Loader /> : (
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          {presets.length === 0 && suggestions.length === 0 && (
+            <p style={{ fontSize:12, color:'var(--t3)' }}>Nenhum prato cadastrado ainda. Crie opções em "🔁 Adicionar prato" dentro de Editar refeição.</p>
+          )}
+          {(presets.length ? presets : suggestions).map(p => {
+            const m = sumMacros(p.foods || [])
+            const isCurrent = p.name === currentName
+            return (
+              <button key={p.id || p.key} onClick={() => onSelect(p)} disabled={isCurrent}
+                style={{
+                  width:'100%', padding:'12px 14px', textAlign:'left', display:'flex', alignItems:'center', gap:10,
+                  background: isCurrent ? 'var(--accent10)' : 'var(--bg3)',
+                  border: `1.5px solid ${isCurrent ? 'var(--accent)' : 'var(--b1)'}`,
+                  borderRadius:'var(--r)', cursor: isCurrent ? 'default' : 'pointer', opacity: isCurrent ? 0.7 : 1,
+                }}>
+                <span style={{ fontSize:20, flexShrink:0 }}>{p.icon}</span>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontWeight:700, fontSize:13, color:'var(--t1)' }}>{p.name}{isCurrent ? ' (atual)' : ''}</div>
+                  <div style={{ fontSize:11, color:'var(--t3)' }}>{Math.round(m.cal)} kcal · P:{Math.round(m.prot)}g · C:{Math.round(m.carb)}g · G:{Math.round(m.fat)}g</div>
+                </div>
+                {!isCurrent && <span style={{ color:'var(--accent)', fontSize:16, flexShrink:0 }}>→</span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </Modal>
   )
 }
 
