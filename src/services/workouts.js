@@ -152,6 +152,25 @@ export const logService = {
     return map
   },
 
+  /** Get the best (PR) weight×reps ever logged for each exercise in a batch — used to
+   *  show "PR" alongside the last session directly on the exercise list. */
+  async listPRsByExerciseIds(exerciseIds) {
+    if (!exerciseIds || !exerciseIds.length) return {}
+    const { data, error } = await supabase
+      .from('exercise_sets')
+      .select('weight, reps, exercise_logs!inner(exercise_id)')
+      .in('exercise_logs.exercise_id', exerciseIds)
+    if (error) throw error
+    const map = {}
+    for (const row of data || []) {
+      const exId = row.exercise_logs?.exercise_id
+      const w = parseFloat(row.weight) || 0
+      if (!exId || !w) continue
+      if (!map[exId] || w > map[exId].weight) map[exId] = { weight: w, reps: row.reps }
+    }
+    return map
+  },
+
   /** Get all logs for a given exercise, newest first */
   async listByExercise(exerciseId) {
     const { data, error } = await supabase

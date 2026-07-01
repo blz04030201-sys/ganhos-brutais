@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useApp } from '../hooks/useAppContext'
 import { gymService, workoutService, exerciseService, logService } from '../services/workouts'
 import { WORKOUT_COLORS, GYM_ICONS, GYM_COLORS, dateLabel, calcVolume } from '../utils/helpers'
@@ -280,6 +281,7 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
   const { userId, toast } = useApp()
   const [exercises, setExercises] = useState([])
   const [lastSets,  setLastSets]  = useState({})
+  const [prs,       setPrs]       = useState({})
   const [loading,   setLoading]   = useState(true)
   const [modal,     setModal]     = useState(false)
   const [editing,   setEditing]   = useState(null)
@@ -291,7 +293,13 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
     try {
       const data = await exerciseService.listByWorkout(workout.id)
       setExercises(data)
-      setLastSets(await logService.listLatestByExerciseIds(data.map(e => e.id)))
+      const ids = data.map(e => e.id)
+      const [last, prMap] = await Promise.all([
+        logService.listLatestByExerciseIds(ids),
+        logService.listPRsByExerciseIds(ids),
+      ])
+      setLastSets(last)
+      setPrs(prMap)
     } finally { setLoading(false) }
   }
 
@@ -344,6 +352,7 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
             <p style={{ fontSize:11, color:'var(--t3)', marginBottom:4 }}>☰ Arraste para reordenar</p>
             {exercises.map((ex, i) => {
               const last = lastSets[ex.id]
+              const pr   = prs[ex.id]
               return (
               <div
                 key={ex.id}
@@ -358,10 +367,10 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
                     <div style={{ fontWeight:700, fontSize:14, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:2 }}>{ex.name}</div>
                     <div style={{ color:'var(--t3)', fontSize:11 }}>{ex.valid_sets} série{ex.valid_sets !== 1 ? 's' : ''} válida{ex.valid_sets !== 1 ? 's' : ''}</div>
                   </div>
-                  {/* Right: last sets in blue, compact column */}
-                  {last && (
+                  {/* Right: last sets in blue + PR, compact column */}
+                  {(last || pr) && (
                     <div style={{ flexShrink:0, display:'flex', flexDirection:'column', gap:3, alignItems:'flex-end' }}>
-                      {last.sets.map((s,si) => (
+                      {last?.sets.map((s,si) => (
                         <div key={si} style={{ display:'flex', alignItems:'center', gap:5 }}>
                           <span style={{ fontSize:9, color:'var(--t3)', fontWeight:600, minWidth:14, textAlign:'right' }}>{si+1}ª</span>
                           <span style={{ fontSize:13, fontWeight:800, color:'var(--accent)', letterSpacing:'-0.3px' }}>
@@ -371,6 +380,16 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
                           </span>
                         </div>
                       ))}
+                      {pr && (
+                        <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:1 }}>
+                          <span style={{ fontSize:9, color:'var(--orange)', fontWeight:700 }}>🏆</span>
+                          <span style={{ fontSize:12, fontWeight:800, color:'var(--orange)', letterSpacing:'-0.3px' }}>
+                            {pr.weight}<span style={{ fontSize:9, fontWeight:600 }}>kg</span>
+                            {' '}<span style={{ fontSize:10 }}>×</span>{' '}
+                            {pr.reps}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
                   <div style={{ display:'flex', flexDirection:'column', gap:4, flexShrink:0, marginLeft:4 }}>
@@ -535,14 +554,33 @@ function LogSession({ ex, gym, workout, onBack, onDone }) {
    EXERCISE HISTORY
 ───────────────────────────────────────────── */
 function ExHistory({ ex, onBack }) {
-  const [logs,    setLogs]    = useState([])
-  const [loading, setLoading] = useState(true)
+  const [logs,     setLogs]     = useState([])
+  const [loading,  setLoading]  = useState(true)
+  const [chartKey, setChartKey] = useState('weight')
 
   useEffect(() => {
     logService.listByExercise(ex.id).then(d => { setLogs(d); setLoading(false) })
   }, [ex?.id])
 
   const prWeight = logs.reduce((m,l) => Math.max(m,...(l.sets||[]).map(s=>parseFloat(s.weight)||0)),0)
+
+  // Chronological (oldest → newest) for the chart, one point per session:
+  // top weight lifted and its best rep count for that session.
+  const chartData = logs.slice().reverse().map(log => {
+    const sets = log.sets || []
+    const topSet = sets.reduce((best, s) => (parseFloat(s.weight)||0) > (parseFloat(best?.weight)||0) ? s : best, sets[0])
+    return {
+      date: dateLabel(log.log_date).slice(0,5),
+      weight: topSet ? parseFloat(topSet.weight)||null : null,
+      reps: topSet ? parseInt(topSet.reps)||null : null,
+    }
+  }).filter(d => d.weight !== null || d.reps !== null)
+
+  const CHART_OPTIONS = [
+    { key:'weight', label:'Carga (kg)',    color:'var(--accent)' },
+    { key:'reps',   label:'Repetições',    color:'var(--orange)' },
+  ]
+  const cur = CHART_OPTIONS.find(o => o.key === chartKey)
 
   if (loading) return <div className="screen"><Loader /></div>
 
@@ -555,6 +593,40 @@ function ExHistory({ ex, onBack }) {
         <h2 style={{ fontSize:20, fontWeight:700, color:'var(--t1)', marginBottom:6 }}>{ex.name}</h2>
         {prWeight > 0 && <span className="chip chip-gold">🏆 PR histórico: {prWeight}kg</span>}
       </div>
+
+      {/* Evolution chart */}
+      {chartData.length >= 2 && (
+        <div style={{ padding:'0 16px 16px' }}>
+          <div style={{ display:'flex', gap:6, marginBottom:12 }}>
+            {CHART_OPTIONS.map(o => (
+              <button key={o.key} onClick={() => setChartKey(o.key)}
+                style={{ padding:'6px 14px', borderRadius:99, fontSize:12, fontWeight:700, whiteSpace:'nowrap',
+                  background: chartKey === o.key ? o.color : 'var(--bg3)',
+                  color: chartKey === o.key ? '#fff' : 'var(--t3)',
+                  border:`1px solid ${chartKey === o.key ? o.color : 'var(--b1)'}`,
+                  cursor:'pointer',
+                }}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ height:160, background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--r)', padding:'10px 4px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top:4, right:12, left:-20, bottom:0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--b1)" />
+                <XAxis dataKey="date" tick={{ fill:'var(--t3)', fontSize:10 }} />
+                <YAxis tick={{ fill:'var(--t3)', fontSize:10 }} domain={['auto','auto']} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ background:'var(--bg2)', border:'1px solid var(--b1)', borderRadius:8, fontSize:12 }}
+                  labelStyle={{ color:'var(--t2)' }}
+                  formatter={(v) => [chartKey === 'weight' ? `${v}kg` : v, cur.label]}
+                />
+                <Line type="monotone" dataKey={chartKey} stroke={cur.color} strokeWidth={2} dot={{ r:3, fill:cur.color }} connectNulls />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
 
       {logs.length === 0
         ? <Empty icon="📊" title="Sem histórico" description="Registre treinos para ver a evolução aqui." />

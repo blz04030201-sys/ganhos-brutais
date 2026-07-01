@@ -491,7 +491,12 @@ function WorkoutSummary({ exercises, wk }) {
           const last = lastSets[ex.id]
           return (
             <div key={ex.id}>
-              <div style={{ fontSize:13, fontWeight:700, color:'var(--t1)', marginBottom: last ? 4 : 0 }}>{ex.name}</div>
+              <div style={{ fontSize:13, fontWeight:700, color:'var(--t1)', marginBottom:2 }}>{ex.name}</div>
+              {last && last.sets?.length > 0 && (
+                <div style={{ fontSize:11, fontWeight:700, color:'#10B981', marginBottom:4 }}>
+                  ✔ {last.sets.length} série{last.sets.length !== 1 ? 's' : ''} válida{last.sets.length !== 1 ? 's' : ''}
+                </div>
+              )}
               {last && last.sets?.length > 0 ? (
                 <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
                   {last.sets.map((s, si) => (
