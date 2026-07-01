@@ -87,22 +87,22 @@ export default function DietScreen({ setTab }) {
 
   return (
     <div className="screen">
-      {/* ── TOP GREETING ───────────────────────────────── */}
-      <div style={{ padding:'20px 16px 0', display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+      {/* ── TOP GREETING (compacto) ───────────────────────────────── */}
+      <div style={{ padding:'14px 16px 0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
         <div>
-          <p style={{ color:'var(--t2)', fontSize:14, fontWeight:500 }}>{GREETING}</p>
-          <h1 style={{ fontSize:30, fontWeight:800, lineHeight:1.1, marginTop:2 }}>
-            {(profile?.name || 'Atleta').split(' ')[0]} 👋
-          </h1>
-          <p style={{ color:'var(--t3)', fontSize:12, marginTop:4 }}>{DAY_STR()}</p>
+          <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
+            <span style={{ color:'var(--t2)', fontSize:12.5, fontWeight:500 }}>{GREETING}</span>
+            <span style={{ fontSize:17, fontWeight:800, color:'var(--t1)' }}>{(profile?.name || 'Atleta').split(' ')[0]} 👋</span>
+          </div>
+          <p style={{ color:'var(--t3)', fontSize:11, marginTop:1 }}>{DAY_STR()}</p>
         </div>
         <button
           onClick={() => setTab && setTab('settings')}
           style={{
-            width:42, height:42, borderRadius:'50%',
+            width:36, height:36, borderRadius:'50%',
             background:'linear-gradient(135deg, var(--accent), var(--purple))',
             display:'flex', alignItems:'center', justifyContent:'center',
-            fontSize:16, fontWeight:800, color:'#fff',
+            fontSize:14, fontWeight:800, color:'#fff',
             border:'none', flexShrink:0,
             boxShadow:'0 4px 16px var(--accent20)',
           }}
@@ -112,13 +112,13 @@ export default function DietScreen({ setTab }) {
       </div>
 
       {/* Header */}
-      <div className="screen-header">
+      <div className="screen-header" style={{ paddingTop:8, paddingBottom:6 }}>
         <div>
-          <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.12em', color:'var(--accent)', textTransform:'uppercase', marginBottom:2 }}>Nutrição</div>
-          <h2 style={{ fontSize:24, fontWeight:800, color:'var(--t1)', lineHeight:1 }}>Minha Dieta</h2>
+          <div style={{ fontSize:9.5, fontWeight:700, letterSpacing:'0.12em', color:'var(--accent)', textTransform:'uppercase', marginBottom:1 }}>Nutrição</div>
+          <h2 style={{ fontSize:19, fontWeight:800, color:'var(--t1)', lineHeight:1 }}>Minha Dieta</h2>
         </div>
         <button onClick={() => setView('goals')}
-          style={{ display:'flex', alignItems:'center', gap:6, background:'var(--accent10)', border:'1px solid var(--accent20)', borderRadius:'var(--rsm)', padding:'8px 12px', color:'var(--accent)', fontSize:12, fontWeight:700 }}>
+          style={{ display:'flex', alignItems:'center', gap:6, background:'var(--accent10)', border:'1px solid var(--accent20)', borderRadius:'var(--rsm)', padding:'7px 11px', color:'var(--accent)', fontSize:12, fontWeight:700 }}>
           ⚙️ Metas
         </button>
       </div>
@@ -127,7 +127,7 @@ export default function DietScreen({ setTab }) {
       <MacroSummary totals={totals} goals={goals} weight={weight} pct={pct} onGoals={() => setView('goals')} />
 
       {/* Meals */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 16px 10px' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px 6px' }}>
         <div>
           <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'var(--t3)', textTransform:'uppercase' }}>Refeições</div>
           {meals.length > 0 && <div style={{ fontSize:12, color:'var(--t3)', marginTop:2 }}>{meals.length} refeição{meals.length!==1?'es':''}</div>}
@@ -142,7 +142,7 @@ export default function DietScreen({ setTab }) {
         ? <Empty icon="🥗" title="Nenhuma refeição" description="Adicione refeições para montar sua dieta."
             action={() => { setEditMeal(null); setView('editMeal') }} actionLabel="+ Adicionar" />
         : (
-          <div style={{ padding:'0 14px', display:'flex', flexDirection:'column', gap:8 }}>
+          <div style={{ padding:'0 14px', display:'flex', flexDirection:'column', gap:6 }}>
             {meals.map((m, i) => (
               <div key={m.id} {...getItemProps(i)}>
                 <MealCard
@@ -172,7 +172,7 @@ export default function DietScreen({ setTab }) {
       }
 
       {/* Hidratação */}
-      <div style={{ margin:'18px 14px 0' }}>
+      <div style={{ margin:'14px 14px 0' }}>
         <HydrationCard
           water={water}
           weight={weight}
@@ -189,7 +189,7 @@ export default function DietScreen({ setTab }) {
         />
       </div>
 
-      <div style={{ height:24 }} />
+      <div style={{ height:14 }} />
     </div>
   )
 }
@@ -220,8 +220,8 @@ function HydrationCard({ water, weight, onAdd, onUndo }) {
   }
 
   return (
-    <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'16px 18px' }}>
-      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:14 }}>
+    <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'13px 15px' }}>
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:10 }}>
         <div>
           <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'var(--t3)', textTransform:'uppercase', marginBottom:2 }}>💧 Hidratação</div>
           <div style={{ fontSize:11, color:'var(--t3)' }}>
@@ -236,20 +236,20 @@ function HydrationCard({ water, weight, onAdd, onUndo }) {
         </div>
       </div>
 
-      <div style={{ height:8, background:'var(--b1)', borderRadius:99, overflow:'hidden', marginBottom:14 }}>
+      <div style={{ height:7, background:'var(--b1)', borderRadius:99, overflow:'hidden', marginBottom:10 }}>
         <div style={{ height:'100%', width:`${pctDone}%`, background:'linear-gradient(90deg, #0EA5E9, #38BDF8)', borderRadius:99, transition:'width .5s' }} />
       </div>
 
-      <div style={{ display:'flex', gap:8, marginBottom:water.length ? 10 : 0 }}>
+      <div style={{ display:'flex', gap:8, marginBottom:water.length ? 8 : 0 }}>
         {[200, 300, 500].map(ml => (
           <button key={ml} disabled={saving} onClick={() => add(ml)}
-            style={{ flex:1, padding:'9px 0', background:'var(--accent10)', border:'1px solid var(--accent20)', borderRadius:'var(--rsm)', color:'var(--accent)', fontSize:12.5, fontWeight:700, cursor:'pointer' }}>
+            style={{ flex:1, padding:'7px 0', background:'var(--accent10)', border:'1px solid var(--accent20)', borderRadius:'var(--rsm)', color:'var(--accent)', fontSize:12.5, fontWeight:700, cursor:'pointer' }}>
             + {ml >= 1000 ? `${ml/1000}L` : `${ml}ml`}
           </button>
         ))}
         <div style={{ display:'flex', flex:'1.2 1 0%', gap:4, minWidth:0 }}>
           <input value={custom} onChange={e => setCustom(e.target.value)} placeholder="L"
-            inputMode="decimal" className="inp" style={{ flex:'1 1 0%', minWidth:0, padding:'8px 6px', fontSize:12.5, textAlign:'center', minHeight:36 }} />
+            inputMode="decimal" className="inp" style={{ flex:'1 1 0%', minWidth:0, padding:'6px 6px', fontSize:12.5, textAlign:'center', minHeight:32 }} />
           <button disabled={saving || !custom} onClick={addCustom}
             style={{ flexShrink:0, padding:'0 12px', background:'var(--accent)', border:'none', borderRadius:'var(--rsm)', color:'#fff', fontSize:16, fontWeight:700, cursor:'pointer', opacity: custom ? 1 : 0.5 }}>
             +
@@ -258,7 +258,7 @@ function HydrationCard({ water, weight, onAdd, onUndo }) {
       </div>
 
       {water.length > 0 && (
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', paddingTop:10, borderTop:'1px solid var(--b2)' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', paddingTop:8, borderTop:'1px solid var(--b2)' }}>
           <span style={{ fontSize:11, color:'var(--t3)' }}>{water.length} registro{water.length!==1?'s':''} hoje</span>
           <button onClick={onUndo} disabled={saving}
             style={{ background:'none', border:'none', color:'var(--t3)', fontSize:11, fontWeight:600, cursor:'pointer' }}>
@@ -300,31 +300,31 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
   const R=42, CX=50, CY=50, circ=2*Math.PI*R
 
   return (
-    <div style={{ margin:'0 14px 6px', display:'flex', flexDirection:'column', gap:10 }}>
+    <div style={{ margin:'0 14px 6px', display:'flex', flexDirection:'column', gap:8 }}>
 
       {/* ── CARD 1: META DIÁRIA — total de calorias vs. meta ── */}
-      <div style={{ background:'linear-gradient(135deg, #0c0c1c 0%, #0e0e20 100%)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'18px 20px 16px', position:'relative', overflow:'hidden' }}>
+      <div style={{ background:'linear-gradient(135deg, #0c0c1c 0%, #0e0e20 100%)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'14px 16px 13px', position:'relative', overflow:'hidden' }}>
         <div style={{ position:'absolute', top:-40, right:-40, width:120, height:120, borderRadius:'50%', background:'radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%)', pointerEvents:'none' }} />
 
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
           <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'var(--t3)', textTransform:'uppercase' }}>Meta Diária</div>
           <button onClick={onGoals} style={{ fontSize:10, fontWeight:700, color:'var(--accent)', background:'none', border:'none', cursor:'pointer', padding:0 }}>Editar ⚙️</button>
         </div>
 
-        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:14 }}>
+        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:10 }}>
           <div>
             <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
-              <span style={{ fontSize:42, fontWeight:900, color:'var(--t1)', lineHeight:1, letterSpacing:'-1px' }}>{Math.round(cal)}</span>
-              <span style={{ fontSize:14, color:'var(--t3)', fontWeight:600 }}>/ {goals.calories} kcal</span>
+              <span style={{ fontSize:36, fontWeight:900, color:'var(--t1)', lineHeight:1, letterSpacing:'-1px' }}>{Math.round(cal)}</span>
+              <span style={{ fontSize:13, color:'var(--t3)', fontWeight:600 }}>/ {goals.calories} kcal</span>
             </div>
-            <div style={{ fontSize:12, color: kcalPct >= 100 ? '#10B981' : kcalLeft > 0 ? 'var(--t3)' : 'var(--orange)', marginTop:4 }}>
+            <div style={{ fontSize:11.5, color: kcalPct >= 100 ? '#10B981' : kcalLeft > 0 ? 'var(--t3)' : 'var(--orange)', marginTop:3 }}>
               {kcalPct >= 100 ? '✓ Meta atingida' : `Faltam ${Math.round(Math.max(0,kcalLeft))} kcal para a meta`}
             </div>
           </div>
 
           {/* Single-tone ring: goal-attainment % only (not macro distribution) */}
           <div style={{ position:'relative', flexShrink:0 }}>
-            <svg width="72" height="72" viewBox="0 0 100 100">
+            <svg width="60" height="60" viewBox="0 0 100 100">
               <circle cx={CX} cy={CY} r={R} fill="none" stroke="var(--b1)" strokeWidth="9" />
               <circle cx={CX} cy={CY} r={R} fill="none"
                 stroke={kcalPct>=100?'#10B981':'#3B82F6'} strokeWidth="9" strokeLinecap="round"
@@ -345,15 +345,15 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
       {/* ── CARD 2: DISTRIBUIÇÃO DA DIETA — vem primeiro entre as informações
            de macronutrientes: mostra como a dieta ATUAL está composta, com
            base apenas nos alimentos cadastrados (não usa as metas). ── */}
-      <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'16px 18px' }}>
-        <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'var(--t3)', textTransform:'uppercase', marginBottom:2 }}>Distribuição da Dieta</div>
-        <div style={{ fontSize:11, color:'var(--t3)', marginBottom:14 }}>Participação de cada macronutriente nos alimentos cadastrados hoje</div>
+      <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'13px 15px' }}>
+        <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'var(--t3)', textTransform:'uppercase', marginBottom:1 }}>Distribuição da Dieta</div>
+        <div style={{ fontSize:10.5, color:'var(--t3)', marginBottom:10 }}>Participação de cada macronutriente nos alimentos cadastrados hoje</div>
 
-        <div style={{ display:'flex', alignItems:'center', gap:18 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:16 }}>
           {/* Pie chart — pure macro-distribution, calculated only from the
               foods actually logged, never from the configured goals */}
           <div style={{ position:'relative', flexShrink:0 }}>
-            <svg width="90" height="90" viewBox="0 0 100 100">
+            <svg width="72" height="72" viewBox="0 0 100 100">
               <circle cx={CX} cy={CY} r={R} fill="none" stroke="var(--b1)" strokeWidth="14" />
               {segs.map((s,i) => (
                 <circle key={i} cx={CX} cy={CY} r={R} fill="none"
@@ -367,7 +367,7 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
           </div>
 
           {/* Legend: % of calories per macro, straight from the logged foods */}
-          <div style={{ flex:1, display:'flex', flexDirection:'column', gap:9 }}>
+          <div style={{ flex:1, display:'flex', flexDirection:'column', gap:6 }}>
             {macros.map(m => {
               const calPct = macTotal > 0 && segs.length ? Math.round(m.cal / macTotal * 100) : 0
               return (
@@ -385,11 +385,11 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
       {/* ── CARD 3: MACROS CONSUMIDOS — depois de ver a distribuição real,
            aqui mostra o quanto já foi consumido de cada macro e se a meta
            individual está sendo atingida (g, barra de progresso e g/kg). ── */}
-      <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'16px 18px' }}>
-        <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'var(--t3)', textTransform:'uppercase', marginBottom:2 }}>Macros Consumidos</div>
-        <div style={{ fontSize:11, color:'var(--t3)', marginBottom:14 }}>Quanto você já bateu da meta de cada macronutriente</div>
+      <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'13px 15px' }}>
+        <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'var(--t3)', textTransform:'uppercase', marginBottom:1 }}>Macros Consumidos</div>
+        <div style={{ fontSize:10.5, color:'var(--t3)', marginBottom:10 }}>Quanto você já bateu da meta de cada macronutriente</div>
 
-        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
           {macros.map(m => {
             const p = pct(m.val, m.goal)
             const gk = weight ? m.val/weight : null
@@ -397,7 +397,7 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
             const low = gk!==null && gk<m.min
             return (
               <div key={m.label}>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:5 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:4 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:7 }}>
                     <div style={{ width:8, height:8, borderRadius:'50%', background:m.color }} />
                     <span style={{ fontSize:12.5, fontWeight:600, color:'var(--t2)' }}>{m.label}</span>
@@ -406,16 +406,16 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
                     <span style={{ fontSize:14, fontWeight:800, color:'var(--t1)' }}>{Math.round(m.val)}g</span>
                     <span style={{ fontSize:10, color:'var(--t3)' }}>/ {m.goal}g</span>
                     <span style={{ fontSize:10, color:'var(--t3)', marginLeft:4 }}>{p}%</span>
+                    {gk !== null && (
+                      <span style={{ fontSize:10, fontWeight:700, marginLeft:6, color:ok?m.color:low?'var(--orange)':'var(--red)' }}>
+                        {gk.toFixed(2)} g/kg
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div style={{ height:5, background:'var(--b1)', borderRadius:99, overflow:'hidden' }}>
                   <div style={{ height:'100%', width:`${p}%`, background:m.color, borderRadius:99, transition:'width .5s', opacity:0.9 }} />
                 </div>
-                {gk !== null && (
-                  <div style={{ fontSize:10, fontWeight:700, marginTop:4, textAlign:'right', color:ok?m.color:low?'var(--orange)':'var(--red)' }}>
-                    {gk.toFixed(2)} g/kg
-                  </div>
-                )}
               </div>
             )
           })}
@@ -470,15 +470,15 @@ function MealCard({ meal, userId, customFoods, onEdit, onDelete, onSwapDish, han
       overflow:'hidden', transition:'border-color .2s',
     }}>
       {/* ── COLLAPSED ROW — matches image design ── */}
-      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'13px 12px 13px 8px' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:9, padding:'9px 10px 9px 8px' }}>
         <span {...handleProps} style={{ ...handleProps?.style, fontSize:14, color:'var(--t4)', padding:'6px 2px', flexShrink:0 }}>⠿</span>
 
         {/* Icon circle with color */}
         <div style={{
-          width:44, height:44, borderRadius:14,
+          width:38, height:38, borderRadius:12,
           background:`${iconBg}22`, border:`1.5px solid ${iconBg}44`,
           display:'flex', alignItems:'center', justifyContent:'center',
-          fontSize:22, flexShrink:0
+          fontSize:19, flexShrink:0
         }}>
           {meal.icon}
         </div>
@@ -486,14 +486,14 @@ function MealCard({ meal, userId, customFoods, onEdit, onDelete, onSwapDish, han
         {/* Name + dish + macros */}
         <button onClick={() => setOpen(o=>!o)}
           style={{ flex:1, display:'flex', flexDirection:'column', gap:1, background:'none', border:'none', cursor:'pointer', textAlign:'left', padding:0, minWidth:0 }}>
-          <div style={{ fontWeight:800, fontSize:15, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', lineHeight:1.3 }}>{meal.name}</div>
+          <div style={{ fontWeight:800, fontSize:14, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', lineHeight:1.25 }}>{meal.name}</div>
           {primaryDish && (
-            <div style={{ fontSize:12, color:'var(--t2)', fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+            <div style={{ fontSize:11.5, color:'var(--t2)', fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
               {primaryDish.subIcon ? primaryDish.subIcon+' ' : ''}{primaryDish.subName}
             </div>
           )}
           {/* Macro chips row */}
-          <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:3, flexWrap:'wrap' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:2, flexWrap:'wrap' }}>
             <span style={{ fontSize:11, fontWeight:800, color:'var(--accent)' }}>{Math.round(totals.cal)} kcal</span>
             {totals.prot > 0 && <>
               <span style={{ fontSize:10, color:'var(--t4)' }}>·</span>

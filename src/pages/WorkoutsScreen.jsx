@@ -369,15 +369,15 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
         <button onClick={onBack} style={{ color:'var(--accent)', fontWeight:700, fontSize:14, background:'none', border:'none', cursor:'pointer' }}>← {workout.display_name||workout.name}</button>
         <button onClick={openNew} style={{ color:'var(--accent)', fontSize:26, lineHeight:1, background:'none', border:'none', cursor:'pointer' }}>+</button>
       </div>
-      <div style={{ padding:'2px 16px 10px' }}>
+      <div style={{ padding:'2px 16px 6px' }}>
         <span style={{ color:'var(--t3)', fontSize:12 }}>{gym.icon} {gym.name}</span>
       </div>
 
       {exercises.length === 0
         ? <Empty icon="🏋️" title="Nenhum exercício" description="Adicione exercícios a este treino." action={openNew} actionLabel="+ Exercício" />
         : (
-          <div style={{ padding:'0 16px', display:'flex', flexDirection:'column', gap:8 }}>
-            <p style={{ fontSize:11, color:'var(--t3)', marginBottom:4 }}>☰ Arraste para reordenar</p>
+          <div style={{ padding:'0 16px', display:'flex', flexDirection:'column', gap:6 }}>
+            <p style={{ fontSize:11, color:'var(--t3)', marginBottom:2 }}>☰ Arraste para reordenar</p>
             {exercises.map((ex, i) => {
               const last = lastSets[ex.id]
               const pr   = prs[ex.id]
@@ -388,16 +388,16 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
                 className={dragIndex === i ? 'drag-ghost' : ''}
                 style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--r)', overflow:'hidden', userSelect:'none' }}
               >
-                <div style={{ padding:'10px 12px 10px 8px', display:'flex', alignItems:'flex-start', gap:8 }}>
-                  <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:15, color:'var(--t4)', padding:'6px 3px', flexShrink:0, marginTop:1 }}>⠿</span>
+                <div style={{ padding:'8px 10px 8px 8px', display:'flex', alignItems:'flex-start', gap:8 }}>
+                  <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:15, color:'var(--t4)', padding:'5px 3px', flexShrink:0, marginTop:1 }}>⠿</span>
                   {/* Left: name + séries válidas sempre visíveis */}
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontWeight:700, fontSize:14, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:2 }}>{ex.name}</div>
+                    <div style={{ fontWeight:700, fontSize:14, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:1 }}>{ex.name}</div>
                     <div style={{ color:'var(--t3)', fontSize:11 }}>{ex.valid_sets} série{ex.valid_sets !== 1 ? 's' : ''} válida{ex.valid_sets !== 1 ? 's' : ''}</div>
                   </div>
                   {/* Right: last sets in blue + PR, compact column */}
                   {(last || pr) && (
-                    <div style={{ flexShrink:0, display:'flex', flexDirection:'column', gap:3, alignItems:'flex-end' }}>
+                    <div style={{ flexShrink:0, display:'flex', flexDirection:'column', gap:2, alignItems:'flex-end' }}>
                       {last?.sets.map((s,si) => (
                         <div key={si} style={{ display:'flex', alignItems:'center', gap:5 }}>
                           <span style={{ fontSize:9, color:'var(--t3)', fontWeight:600, minWidth:14, textAlign:'right' }}>{si+1}ª</span>
@@ -409,7 +409,7 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
                         </div>
                       ))}
                       {pr && (
-                        <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:1 }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:0 }}>
                           <span style={{ fontSize:9, color:'var(--orange)', fontWeight:700 }}>🏆</span>
                           <span style={{ fontSize:12, fontWeight:800, color:'var(--orange)', letterSpacing:'-0.3px' }}>
                             {pr.weight}<span style={{ fontSize:9, fontWeight:600 }}>kg</span>
@@ -420,14 +420,14 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
                       )}
                     </div>
                   )}
-                  <div style={{ display:'flex', flexDirection:'column', gap:4, flexShrink:0, marginLeft:4 }}>
-                    <button onClick={e => openEdit(ex, e)} style={{ color:'var(--t2)', padding:'3px 5px', fontSize:14, background:'none', border:'none', cursor:'pointer' }}>✏️</button>
-                    <button onClick={e => { e.stopPropagation(); setDel(ex) }} style={{ color:'var(--red)', padding:'3px 5px', fontSize:14, background:'none', border:'none', cursor:'pointer' }}>🗑️</button>
+                  <div style={{ display:'flex', flexDirection:'column', gap:3, flexShrink:0, marginLeft:4 }}>
+                    <button onClick={e => openEdit(ex, e)} style={{ color:'var(--t2)', padding:'2px 5px', fontSize:14, background:'none', border:'none', cursor:'pointer' }}>✏️</button>
+                    <button onClick={e => { e.stopPropagation(); setDel(ex) }} style={{ color:'var(--red)', padding:'2px 5px', fontSize:14, background:'none', border:'none', cursor:'pointer' }}>🗑️</button>
                   </div>
                 </div>
                 <div style={{ display:'flex', borderTop:'1px solid var(--b2)' }}>
-                  <button onClick={() => onHistory(ex)} style={{ flex:1, padding:'8px', fontSize:11, fontWeight:600, color:'var(--t2)', background:'none', border:'none', borderRight:'1px solid var(--b2)', cursor:'pointer' }}>📊 Histórico</button>
-                  <button onClick={() => onLog(ex)} style={{ flex:1, padding:'8px', fontSize:11, fontWeight:700, color:'var(--accent)', background:'var(--accent10)', border:'none', cursor:'pointer' }}>➕ Registrar</button>
+                  <button onClick={() => onHistory(ex)} style={{ flex:1, padding:'6px', fontSize:11, fontWeight:600, color:'var(--t2)', background:'none', border:'none', borderRight:'1px solid var(--b2)', cursor:'pointer' }}>📊 Histórico</button>
+                  <button onClick={() => onLog(ex)} style={{ flex:1, padding:'6px', fontSize:11, fontWeight:700, color:'var(--accent)', background:'var(--accent10)', border:'none', cursor:'pointer' }}>➕ Registrar</button>
                 </div>
               </div>
             )})}

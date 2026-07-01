@@ -8,11 +8,14 @@ continua funcionando com a mesma conta, login e dados salvos.
 
 ## 1. Rodar a migration no Supabase
 Esta leva adiciona **apenas uma coisa nova ao banco**: a tabela de registros de
-hidratação (`water_logs`). Nada existente é alterado ou removido.
+hidratação (`water_logs`). O polimento visual desta rodada (Dieta mais
+compacta + exercícios do treino mais compactos) é só CSS/layout — não precisa
+de nenhuma migration nova.
 
 1. Abra o painel do Supabase → seu projeto → **SQL Editor**.
 2. Cole o conteúdo do arquivo `migration-hydration.sql` (na raiz do projeto).
-3. Clique em **Run**. É seguro rodar mais de uma vez (idempotente).
+3. Clique em **Run**. É seguro rodar mais de uma vez (idempotente). Se você já
+   rodou essa migration numa versão anterior, pode pular este passo.
 
 ## 2. Instalar e testar localmente (PowerShell)
 
@@ -23,15 +26,19 @@ npm run dev
 ```
 
 Abra o link que aparecer (geralmente `http://localhost:5173`) e confira:
-- Tela de Dieta: agora abre com a saudação (Bom dia/Boa tarde/Boa noite + seu
-  nome) e o avatar, igual à tela inicial.
-- Role até o final da Dieta e veja o card **Hidratação**: toque em +200ml,
-  +300ml ou +500ml e veja o total em litros subir. Teste também o campo
-  manual em litros (ex: digite `0.7` e toque em "+").
-- Confirme que a meta mostrada é `peso x 0.045` litros (ex: 80kg → 3.6L).
-- Toque em "Desfazer último" e veja o último registro ser removido.
-- Confirme que refeições, metas, macros, treino, corpo e configurações
-  continuam funcionando exatamente como antes — nada disso foi alterado.
+- Tela de Dieta: abre com a saudação (Bom dia/Boa tarde/Boa noite + nome) e o
+  avatar, e agora exige bem menos rolagem para ver tudo — Meta Diária,
+  Distribuição, Macros Consumidos, Refeições e Hidratação, todos mais
+  enxutos, com as mesmas informações de antes.
+- Card de Hidratação: +200ml/+300ml/+500ml e o campo manual em litros
+  continuam funcionando, meta = peso × 0.045L.
+- Treino → abra um treino e veja a lista de exercícios: cada exercício
+  continua mostrando nome, séries válidas, últimas cargas, PR e os botões de
+  Histórico/Registrar/Editar/Excluir — só ocupando menos altura na tela.
+- Confirme que reordenar (arrastar), editar, excluir, registrar série e ver
+  histórico de exercício continuam idênticos a antes.
+- Confirme que refeições, metas, corpo e configurações continuam funcionando
+  exatamente como antes.
 
 Quando estiver satisfeito, pare o servidor (`Ctrl+C`).
 
@@ -46,7 +53,7 @@ npm run preview
 
 ```powershell
 git add .
-git commit -m "Polimento da tela de Dieta (saudação) + hidratação em litros (45ml/kg)"
+git commit -m "Polimento visual: Dieta e exercícios do treino mais compactos (sem alterar funcionalidades)"
 git push
 ```
 
@@ -70,15 +77,13 @@ reabra o app, ou aguarde a atualização automática do `sw.js`).
 
 | # | Item pedido | Status |
 |---|---|---|
-| 1 | Tela de Dieta mais parecida com a referência enviada | ✅ Adicionada a saudação do topo (Bom dia/Boa tarde/Boa noite, nome + avatar), no mesmo padrão visual já usado na tela inicial. O card de Meta Diária, o donut de Distribuição da Dieta, os Macros Consumidos e a lista de Refeições já seguiam esse padrão e foram mantidos como estavam. |
-| 2 | Hidratação por cálculo (45ml x kg corporal) | ✅ Meta calculada automaticamente a partir do peso salvo em Metas. Se o peso não estiver definido, o card avisa para preenchê-lo. |
-| 3 | Registro em litros, não em copos | ✅ Removido o conceito de "copos". Registro por botões rápidos (+200ml/+300ml/+500ml) e por campo manual em litros; total e meta sempre exibidos em litros (ex: `2.1 / 3.0 L`). Inclui opção de desfazer o último registro. |
-| 4 | Nenhuma funcionalidade existente alterada | ✅ Supabase, GitHub Pages, PWA, autenticação, services/hooks/contexts e toda a arquitetura permanecem exatamente como estavam. A única mudança de banco é a criação da nova tabela `water_logs` (aditiva, não toca em nenhuma tabela existente). |
+| 1 | Tela de Dieta ocupando menos altura, sem remover informações | ✅ Saudação do topo e cabeçalho unidos em um bloco mais compacto; paddings, gaps e fontes dos 3 cards de macro (Meta Diária, Distribuição, Macros Consumidos) reduzidos; o "g/kg" de cada macro foi movido para a mesma linha da porcentagem (economiza uma linha por macro, sem perder o dado); cards de refeição e o card de Hidratação com paddings/ícones menores. |
+| 2 | Exercícios do treino ocupando menos altura | ✅ Cabeçalho, espaçamento entre cards e o card de cada exercício (nome, séries válidas, últimas cargas, PR, ações) reduzidos, mesma informação. |
+| 3 | Nenhuma funcionalidade, cálculo ou arquitetura alterada | ✅ Supabase, GitHub Pages, PWA, autenticação, services/hooks/contexts, estrutura do banco e toda a lógica de cálculo permanecem exatamente como estavam — só CSS/layout (paddings, tamanhos de fonte, espaçamentos) foi ajustado. |
 
-### Arquivos tocados
-- `src/pages/DietScreen.jsx` — saudação no topo + novo card de Hidratação.
-- `src/services/diet.js` — novo `hydrationService` (mesmo padrão dos outros services).
-- `migration-hydration.sql` — novo, cria a tabela `water_logs` com RLS.
+### Arquivos tocados nesta rodada
+- `src/pages/DietScreen.jsx` — reorganização visual mais compacta.
+- `src/pages/WorkoutsScreen.jsx` — lista de exercícios mais compacta.
 
-Nenhum outro arquivo (`.git`, `.env`, `node_modules`, schema existente, demais
-telas, services, hooks ou contexts) foi modificado.
+Nenhum outro arquivo (`.git`, `.env`, `node_modules`, schema/migrations,
+demais telas, services, hooks ou contexts) foi modificado nesta rodada.
