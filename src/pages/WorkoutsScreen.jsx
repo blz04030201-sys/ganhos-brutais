@@ -353,10 +353,10 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
               >
                 <div style={{ padding:'10px 12px 10px 8px', display:'flex', alignItems:'flex-start', gap:8 }}>
                   <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:15, color:'var(--t4)', padding:'6px 3px', flexShrink:0, marginTop:1 }}>⠿</span>
-                  {/* Left: name + series info */}
+                  {/* Left: name */}
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontWeight:700, fontSize:14, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:2 }}>{ex.name}</div>
-                    <div style={{ color:'var(--t3)', fontSize:11 }}>{ex.valid_sets} série{ex.valid_sets!==1?'s':''} válida{ex.valid_sets!==1?'s':''}</div>
+                    {!last && <div style={{ color:'var(--t3)', fontSize:11 }}>{ex.valid_sets} séries válidas · sem histórico</div>}
                   </div>
                   {/* Right: last sets in blue, compact column */}
                   {last && (
@@ -542,25 +542,7 @@ function ExHistory({ ex, onBack }) {
     logService.listByExercise(ex.id).then(d => { setLogs(d); setLoading(false) })
   }, [ex?.id])
 
-  // Best set ever
-  const prSet = logs.reduce((best, log) => {
-    const top = (log.sets||[]).reduce((b,s) => {
-      const w = parseFloat(s.weight)||0
-      return w > (parseFloat(b?.weight)||0) ? s : b
-    }, null)
-    if (!top) return best
-    const w = parseFloat(top.weight)||0
-    return w > (parseFloat(best?.weight)||0) ? { ...top, log_date: log.log_date } : best
-  }, null)
-
-  // Chart data: one point per session, top weight of that session
-  const chartData = [...logs].reverse().map(log => ({
-    date: log.log_date?.slice(5),   // MM-DD
-    peso: (log.sets||[]).reduce((m,s) => Math.max(m, parseFloat(s.weight)||0), 0),
-  })).filter(d => d.peso > 0)
-
-  const maxW = chartData.reduce((m,d) => Math.max(m, d.peso), 0)
-  const minW = chartData.reduce((m,d) => Math.min(m, d.peso), maxW)
+  const prWeight = logs.reduce((m,l) => Math.max(m,...(l.sets||[]).map(s=>parseFloat(s.weight)||0)),0)
 
   if (loading) return <div className="screen"><Loader /></div>
 
@@ -570,97 +552,35 @@ function ExHistory({ ex, onBack }) {
         <button className="btn-back" onClick={onBack}>← Voltar</button>
       </div>
       <div style={{ padding:'0 16px 16px' }}>
-        <h2 style={{ fontSize:20, fontWeight:700, color:'var(--t1)', marginBottom:12 }}>{ex.name}</h2>
-
-        {/* PR Card */}
-        {prSet && (
-          <div style={{ background:'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.05))', border:'1px solid rgba(245,158,11,0.35)', borderRadius:'var(--rlg)', padding:'14px 16px', marginBottom:16 }}>
-            <div style={{ fontSize:10, fontWeight:800, color:'var(--orange)', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8 }}>🏆 Recorde Pessoal</div>
-            <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
-              <span style={{ fontSize:28, fontWeight:900, color:'var(--t1)', letterSpacing:'-1px' }}>{prSet.weight}kg</span>
-              <span style={{ fontSize:18, color:'var(--t3)' }}>×</span>
-              <span style={{ fontSize:22, fontWeight:800, color:'var(--orange)' }}>{prSet.reps}</span>
-              <span style={{ fontSize:12, color:'var(--t3)', marginLeft:4 }}>reps</span>
-            </div>
-            <div style={{ fontSize:11, color:'var(--t3)', marginTop:4 }}>
-              {new Date(prSet.log_date+'T12:00:00').toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' })}
-            </div>
-          </div>
-        )}
-
-        {/* Evolution Chart */}
-        {chartData.length >= 2 && (
-          <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'14px 16px', marginBottom:16 }}>
-            <div style={{ fontSize:10, fontWeight:800, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12 }}>📈 Evolução de Carga</div>
-            <svg width="100%" viewBox={`0 0 ${Math.max(chartData.length * 40, 200)} 80`} preserveAspectRatio="none" style={{ overflow:'visible', display:'block' }}>
-              <defs>
-                <linearGradient id={`grad-${ex.id}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35"/>
-                  <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.03"/>
-                </linearGradient>
-              </defs>
-              {(() => {
-                const W = Math.max(chartData.length * 40, 200)
-                const H = 80
-                const pad = 12
-                const range = maxW - minW || 1
-                const pts = chartData.map((d, i) => ({
-                  x: pad + (i / (chartData.length - 1)) * (W - pad*2),
-                  y: H - pad - ((d.peso - minW) / range) * (H - pad*2),
-                  ...d
-                }))
-                const line = pts.map((p,i) => `${i===0?'M':'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
-                const area = `${line} L${pts[pts.length-1].x},${H} L${pts[0].x},${H} Z`
-                return (
-                  <>
-                    <path d={area} fill={`url(#grad-${ex.id})`} />
-                    <path d={line} fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
-                    {pts.map((p,i) => (
-                      <g key={i}>
-                        <circle cx={p.x} cy={p.y} r="4" fill="var(--accent)" stroke="var(--bg2)" strokeWidth="2"/>
-                        {(i===0 || i===pts.length-1 || p.peso===maxW) && (
-                          <text x={p.x} y={p.y - 9} textAnchor="middle" fontSize="9" fontWeight="700" fill="var(--accent)">{p.peso}kg</text>
-                        )}
-                      </g>
-                    ))}
-                    {/* X axis labels: first, last and every 3rd */}
-                    {pts.map((p,i) => (i===0 || i===pts.length-1 || i%3===0) && (
-                      <text key={i} x={p.x} y={H+4} textAnchor="middle" fontSize="8" fill="var(--t3)" dominantBaseline="hanging">{p.date}</text>
-                    ))}
-                  </>
-                )
-              })()}
-            </svg>
-          </div>
-        )}
-
-        {/* Session history */}
-        {logs.length === 0
-          ? <Empty icon="📊" title="Sem histórico" description="Registre treinos para ver a evolução aqui." />
-          : (
-            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-              {logs.map(log => (
-                <div key={log.id} className="card">
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-                    <span style={{ fontWeight:700, fontSize:14, color:'var(--t1)' }}>{dateLabel(log.log_date)}</span>
-                    <span style={{ color:'var(--t3)', fontSize:12 }}>Vol: {calcVolume(log.sets)}kg</span>
-                  </div>
-                  {log.sets.map((s,i) => (
-                    <div key={i} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
-                      <div style={{ width:22, height:22, borderRadius:'50%', background:'var(--b1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:'var(--t3)', fontWeight:700, flexShrink:0 }}>{i+1}</div>
-                      <span style={{ fontSize:14, fontWeight:600, color:'var(--t1)' }}>{s.weight}kg × {s.reps}</span>
-                      {s.is_pr && <span className="chip chip-gold" style={{ fontSize:9 }}>🏆 PR</span>}
-                    </div>
-                  ))}
-                  {log.observation && (
-                    <p style={{ fontSize:12, color:'var(--t3)', marginTop:8, fontStyle:'italic', borderTop:'1px solid var(--b1)', paddingTop:8 }}>"{log.observation}"</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )
-        }
+        <h2 style={{ fontSize:20, fontWeight:700, color:'var(--t1)', marginBottom:6 }}>{ex.name}</h2>
+        {prWeight > 0 && <span className="chip chip-gold">🏆 PR histórico: {prWeight}kg</span>}
       </div>
+
+      {logs.length === 0
+        ? <Empty icon="📊" title="Sem histórico" description="Registre treinos para ver a evolução aqui." />
+        : (
+          <div style={{ padding:'0 16px', display:'flex', flexDirection:'column', gap:10 }}>
+            {logs.map(log => (
+              <div key={log.id} className="card">
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                  <span style={{ fontWeight:700, fontSize:14, color:'var(--t1)' }}>{dateLabel(log.log_date)}</span>
+                  <span style={{ color:'var(--t3)', fontSize:12 }}>Vol: {calcVolume(log.sets)}kg</span>
+                </div>
+                {log.sets.map((s,i) => (
+                  <div key={i} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
+                    <div style={{ width:22, height:22, borderRadius:'50%', background:'var(--b1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:'var(--t3)', fontWeight:700, flexShrink:0 }}>{i+1}</div>
+                    <span style={{ fontSize:14, fontWeight:600, color:'var(--t1)' }}>{s.weight}kg × {s.reps}</span>
+                    {s.is_pr && <span className="chip chip-gold" style={{ fontSize:9 }}>🏆 PR</span>}
+                  </div>
+                ))}
+                {log.observation && (
+                  <p style={{ fontSize:12, color:'var(--t3)', marginTop:8, fontStyle:'italic', borderTop:'1px solid var(--b1)', paddingTop:8 }}>"{log.observation}"</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )
+      }
     </div>
   )
 }

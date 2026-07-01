@@ -295,25 +295,22 @@ a { color: inherit; text-decoration: none; }
   border-bottom: none;
   width: 100%;
   max-width: 480px;
-  /* Use dvh so it shrinks when keyboard is open; fall back to vvh from JS */
-  max-height: min(92dvh, calc(var(--vvh, 100vh) - var(--safe-top) - 12px));
+  max-height: min(88vh, calc(var(--vvh, 100vh) - var(--safe-top) - 24px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
   padding: 0;
   animation: slideUp 0.24s cubic-bezier(0.32, 0.72, 0, 1);
-  /* Prevent content jumping when keyboard opens */
-  will-change: max-height;
 }
 
 .modal-sheet-inner {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  padding: 20px 20px;
-  padding-bottom: calc(max(var(--safe-bottom), var(--safe-bottom-min)) + 20px);
-  flex: 1;
-  min-height: 0;
+  padding: 0 20px;
+  padding-bottom: calc(max(var(--safe-bottom, 8px), 8px) + 20px + var(--keyboard-offset, 0px));
 }
 
 /* ── FormSheet (standardized form layout) ─────────────────────── */
@@ -330,10 +327,8 @@ a { color: inherit; text-decoration: none; }
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
   padding: 0 20px;
-  /* Extra space at bottom so last field isn't flush against footer */
-  padding-bottom: 16px;
+  padding-bottom: calc(20px + var(--keyboard-offset, 0px));
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -343,15 +338,9 @@ a { color: inherit; text-decoration: none; }
   flex-shrink: 0;
   display: flex;
   gap: 10px;
-  padding: 12px 20px;
-  /* Add keyboard offset so footer stays above keyboard */
-  padding-bottom: max(12px, calc(max(var(--safe-bottom), var(--safe-bottom-min)) + var(--keyboard-offset, 0px)));
+  padding: 14px 20px calc(14px + max(var(--safe-bottom), var(--safe-bottom-min)));
   border-top: 1px solid var(--b1);
   background: var(--bg2);
-  /* Ensure footer is always visible */
-  position: sticky;
-  bottom: 0;
-  z-index: 1;
 }
 
 .modal-handle {

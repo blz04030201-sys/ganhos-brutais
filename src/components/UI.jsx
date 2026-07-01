@@ -51,16 +51,14 @@ export function Modal({ onClose, children, title }) {
   return (
     <div className="modal-overlay" onPointerDown={e => { if (e.target === e.currentTarget) onClose?.() }}>
       <div className="modal-sheet">
-        <div style={{ flexShrink:0, padding:'12px 20px 0', display:'flex', justifyContent:'center' }}>
-          <div className="modal-handle" style={{ margin:0 }} />
-        </div>
-        {title && (
-          <div style={{ flexShrink:0, display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 20px 14px' }}>
-            <span className="title-md">{title}</span>
-            <button onClick={onClose} style={{ color:'var(--t3)', fontSize:22, lineHeight:1, minWidth:36, minHeight:36, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
-          </div>
-        )}
         <div className="modal-sheet-inner">
+          <div className="modal-handle" />
+          {title && (
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+              <span className="title-md">{title}</span>
+              <button onClick={onClose} style={{ color:'var(--t3)', fontSize:22, lineHeight:1, minWidth:36, minHeight:36, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
+            </div>
+          )}
           {children}
         </div>
       </div>
