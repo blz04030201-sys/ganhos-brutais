@@ -14,16 +14,46 @@ function useKeyboardSafeArea() {
   useEffect(() => {
     const vv = window.visualViewport
     const root = document.documentElement
-    if (!vv) { root.style.setProperty('--vvh', `${window.innerHeight}px`); return }
+
     const update = () => {
-      const offset = window.innerHeight - vv.height - vv.offsetTop
-      root.style.setProperty('--keyboard-offset', `${Math.max(0, offset)}px`)
-      root.style.setProperty('--vvh', `${vv.height}px`)
+      if (vv) {
+        const offset = window.innerHeight - vv.height - vv.offsetTop
+        root.style.setProperty('--keyboard-offset', `${Math.max(0, offset)}px`)
+        root.style.setProperty('--vvh', `${vv.height}px`)
+      } else {
+        root.style.setProperty('--vvh', `${window.innerHeight}px`)
+      }
     }
     update()
-    vv.addEventListener('resize', update)
-    vv.addEventListener('scroll', update)
-    return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update) }
+
+    if (vv) {
+      vv.addEventListener('resize', update)
+      vv.addEventListener('scroll', update)
+    } else {
+      // Older browsers without visualViewport (rare, but keeps --vvh correct
+      // on rotation / browser-chrome show-hide either way).
+      window.addEventListener('resize', update)
+    }
+
+    // Belt-and-suspenders: whatever field the user focuses (inside a modal
+    // or a plain screen) gets scrolled into view a beat after the keyboard
+    // animation starts. This covers the case where a field autofocuses the
+    // instant a form opens, before the viewport-resize based --keyboard-offset
+    // has had a chance to update — the exact scenario where a Save/Create
+    // button can end up hidden behind the keyboard.
+    const onFocusIn = (e) => {
+      const el = e.target
+      if (!el || !('scrollIntoView' in el)) return
+      if (!['INPUT','TEXTAREA','SELECT'].includes(el.tagName)) return
+      setTimeout(() => { try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }) } catch (_) {} }, 280)
+    }
+    document.addEventListener('focusin', onFocusIn)
+
+    return () => {
+      if (vv) { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update) }
+      else    { window.removeEventListener('resize', update) }
+      document.removeEventListener('focusin', onFocusIn)
+    }
   }, [])
 }
 

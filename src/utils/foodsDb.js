@@ -234,6 +234,11 @@ export const MEAL_PRESETS = {
         buildFoodItem('Frango desfiado',100,'g'),
         buildFoodItem('Requeijão light',30,'g'),
       ]},
+      { key: 'crepioca', name: 'Crepioca', icon: '🌯', foods: [
+        buildFoodItem('Tapioca (goma)',40,'g'),
+        buildFoodItem('Ovo inteiro',2,'unid'),
+        buildFoodItem('Queijo mussarela fatiado',1,'unid'),
+      ]},
     ],
   },
   lunch: {
@@ -249,10 +254,15 @@ export const MEAL_PRESETS = {
         buildFoodItem('Frango grelhado (peito)',180,'g'),
         buildFoodItem('Brócolis',100,'g'),
       ]},
-      { key: 'mac_carne', name: 'Macarrão + Carne', icon: '🍝', foods: [
+      { key: 'mac_bolonhesa', name: 'Macarrão à Bolonhesa', icon: '🍝', foods: [
         buildFoodItem('Macarrão cozido',300,'g'),
         buildFoodItem('Carne moída (patinho)',150,'g'),
         buildFoodItem('Molho de tomate',80,'g'),
+      ]},
+      { key: 'patinho_arroz', name: 'Patinho com Arroz', icon: '🍚', foods: [
+        buildFoodItem('Arroz branco cozido',300,'g'),
+        buildFoodItem('Carne moída (patinho)',150,'g'),
+        buildFoodItem('Feijão carioca cozido',100,'g'),
       ]},
       { key: 'arroz_atum', name: 'Arroz + Atum', icon: '🐟', foods: [
         buildFoodItem('Arroz branco cozido',300,'g'),
@@ -281,6 +291,10 @@ export const MEAL_PRESETS = {
   dinner: {
     label: 'Janta', icon: '🌙',
     options: [
+      { key: 'omelete', name: 'Omelete', icon: '🍳', foods: [
+        buildFoodItem('Ovo inteiro',3,'unid'),
+        buildFoodItem('Queijo mussarela fatiado',1,'unid'),
+      ]},
       { key: 'frango_legumes', name: 'Frango + Legumes', icon: '🥗', foods: [
         buildFoodItem('Frango grelhado (peito)',200,'g'),
         buildFoodItem('Brócolis',150,'g'),

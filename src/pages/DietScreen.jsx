@@ -4,8 +4,10 @@ import { mealPlanService, mealService, mealItemService, dietGoalsService, foodSe
 import { profileService } from '../services/profile'
 import { searchFoods, calcMacros, findFood, getFoodUnits, MEAL_PRESETS, recalcItems } from '../utils/foodsDb'
 import { sumMacros, MEAL_ICONS, smartGoals } from '../utils/helpers'
-import { Modal, FormSheet, Confirm, Loader, Empty, SectionHeader } from '../components/UI'
+import { Modal, FormSheet, Confirm, Loader, Empty, SectionHeader, SheetPicker } from '../components/UI'
 import { useDragSort } from '../hooks/useDragSort'
+
+const DISH_ICONS = ['🍽️','🥣','🍳','🫓','🍚','🍝','🥗','🐟','🥤','🥛','🌯','🍠','🥪','🍞','🧇','🍛','🍲','🥩','🍗','🍕']
 
 /* ─────────────────────────────────────────────
    MAIN SCREEN
@@ -252,8 +254,9 @@ function MealCard({ meal, onEdit, onDelete, handleProps, dragging }) {
   const [del,  setDel]  = useState(false)
   const items   = meal.items || []
   const totals  = sumMacros(items)
-  const groups  = groupItemsBySubName(items)
-  const hasOpts = groups.some(g => g.subName)
+  const groups   = groupItemsBySubName(items)
+  const hasOpts  = groups.some(g => g.subName)
+  const firstDishIdx = groups.findIndex(g => g.subName)
 
   return (
     <div className={dragging ? 'drag-ghost' : ''} style={{
@@ -274,14 +277,14 @@ function MealCard({ meal, onEdit, onDelete, handleProps, dragging }) {
           </div>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontWeight:800, fontSize:15, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{meal.name}</div>
-            {/* Show preset/option name(s) when collapsed */}
+            {/* Show only the primary (first) prato when collapsed — simplified list view */}
             {!open && hasOpts && (
               <div style={{ display:'flex', flexWrap:'wrap', gap:4, marginTop:4 }}>
-                {groups.filter(g=>g.subName).map((g,i) => (
-                  <span key={i} style={{ fontSize:10, fontWeight:700, color:'var(--accent)', background:'var(--accent10)', border:'1px solid var(--accent20)', borderRadius:99, padding:'1px 7px', whiteSpace:'nowrap', maxWidth:140, overflow:'hidden', textOverflow:'ellipsis' }}>
+                {(() => { const g = groups.find(g=>g.subName); return g ? (
+                  <span style={{ fontSize:10, fontWeight:700, color:'var(--accent)', background:'var(--accent10)', border:'1px solid var(--accent20)', borderRadius:99, padding:'1px 7px', whiteSpace:'nowrap', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis' }}>
                     {g.subIcon} {g.subName}
                   </span>
-                ))}
+                ) : null })()}
               </div>
             )}
             <div style={{ display:'flex', alignItems:'center', gap:6, marginTop: (!open && hasOpts) ? 4 : 3 }}>
@@ -336,12 +339,12 @@ function MealCard({ meal, onEdit, onDelete, handleProps, dragging }) {
                     border:'1px solid var(--b1)', borderLeft:'3px solid var(--accent)',
                     overflow:'hidden'
                   }}>
-                    {/* Option header */}
+                    {/* Dish (prato) header */}
                     <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderBottom:'1px solid var(--b2)', background:'var(--bg3)' }}>
                       {group.subIcon && <span style={{ fontSize:18 }}>{group.subIcon}</span>}
                       <div style={{ flex:1 }}>
                         <div style={{ fontSize:13, fontWeight:700, color:'var(--t1)' }}>{group.subName}</div>
-                        <div style={{ fontSize:10, color:'var(--accent)', fontWeight:600, marginTop:1 }}>substituição / opção</div>
+                        <div style={{ fontSize:10, color: gi===firstDishIdx ? 'var(--orange)' : 'var(--accent)', fontWeight:600, marginTop:1 }}>{gi===firstDishIdx ? '⭐ prato principal' : 'prato'}</div>
                       </div>
                       <div style={{ textAlign:'right' }}>
                         <div style={{ fontSize:13, fontWeight:800, color:'var(--accent)' }}>{Math.round(gTotals.cal)}</div>
@@ -411,6 +414,7 @@ function MealEditor({ meal, plan, userId, customFoods, onFoodCreated, onSave, on
   const [addFood, setAddFood] = useState(false)
   const [presets, setPresets] = useState(false)
   const [copyFrom,setCopyFrom]= useState(null)
+  const [iconPickFor, setIconPickFor] = useState(null)
 
   const { dragIndex, getHandleProps, getItemProps } = useDragSort(items, setItems)
   const totals = sumMacros(items)
@@ -440,6 +444,7 @@ function MealEditor({ meal, plan, userId, customFoods, onFoodCreated, onSave, on
   const updateItem = (idx, fields) => setItems(p => p.map((x,i)=>i===idx?{...x,...fields}:x))
 
   const groups = groupItemsBySubName(items)
+  const firstDishIdx = groups.findIndex(g => g.subName)
 
   return (
     <div className="screen">
@@ -479,12 +484,22 @@ function MealEditor({ meal, plan, userId, customFoods, onFoodCreated, onSave, on
             {groups.map((group, gi) => (
               <div key={gi} style={{ marginBottom: group.subName ? 10 : 0 }}>
                 {group.subName && (
-                  <div style={{ display:'flex', alignItems:'center', gap:7, padding:'6px 4px 4px', borderLeft:'3px solid var(--accent)', paddingLeft:10, marginBottom:4 }}>
-                    {group.subIcon && <span style={{ fontSize:14 }}>{group.subIcon}</span>}
+                  <div style={{ display:'flex', alignItems:'center', gap:7, padding:'6px 4px 4px', borderLeft:'3px solid var(--accent)', paddingLeft:10, marginBottom:4, flexWrap:'wrap' }}>
+                    <button onClick={() => setIconPickFor(group.subName)}
+                      style={{ fontSize:16, background:'none', border:'none', cursor:'pointer', padding:'2px 4px' }}>{group.subIcon || '🍽️'}</button>
                     <span style={{ fontSize:12, fontWeight:700, color:'var(--accent)', flex:1 }}>{group.subName}</span>
+                    {gi === firstDishIdx
+                      ? <span style={{ fontSize:9.5, fontWeight:700, color:'var(--orange)', background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.25)', borderRadius:6, padding:'3px 6px', flexShrink:0 }}>⭐ principal</span>
+                      : (
+                        <button
+                          onClick={() => setItems(p => moveGroupToFront(p, group.subName))}
+                          title="Tornar este o prato principal desta refeição"
+                          style={{ fontSize:12, padding:'3px 7px', background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:6, color:'var(--t2)', cursor:'pointer', flexShrink:0 }}>⭐</button>
+                      )
+                    }
                     <button
                       onClick={() => {
-                        const newName = window.prompt('Novo nome:', group.subName)
+                        const newName = window.prompt('Novo nome do prato:', group.subName)
                         if (newName && newName.trim()) {
                           setItems(p => p.map(it => it.sub_name === group.subName ? { ...it, sub_name: newName.trim() } : it))
                         }
@@ -492,7 +507,7 @@ function MealEditor({ meal, plan, userId, customFoods, onFoodCreated, onSave, on
                       style={{ fontSize:12, padding:'3px 7px', background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:6, color:'var(--t2)', cursor:'pointer', flexShrink:0 }}>✏️</button>
                     <button
                       onClick={() => {
-                        if (window.confirm(`Remover a opção "${group.subName}" e todos os seus alimentos?`)) {
+                        if (window.confirm(`Remover o prato "${group.subName}" e todos os seus ingredientes?`)) {
                           setItems(p => p.filter(it => it.sub_name !== group.subName))
                         }
                       }}
@@ -513,6 +528,13 @@ function MealEditor({ meal, plan, userId, customFoods, onFoodCreated, onSave, on
           </div>
         )}
 
+        {iconPickFor && (
+          <SheetPicker title="Ícone do prato" options={DISH_ICONS}
+            selected={items.find(it => it.sub_name === iconPickFor)?.sub_icon}
+            onSelect={ic => setItems(p => p.map(it => it.sub_name === iconPickFor ? { ...it, sub_icon: ic } : it))}
+            onClose={() => setIconPickFor(null)} />
+        )}
+
         {/* Add buttons */}
         <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
           <button onClick={() => setAddFood(true)}
@@ -521,7 +543,7 @@ function MealEditor({ meal, plan, userId, customFoods, onFoodCreated, onSave, on
           </button>
           <button onClick={() => setPresets(true)}
             style={{ padding:'13px', border:'1.5px dashed var(--accent)', borderRadius:'var(--r)', color:'var(--accent)', fontSize:13, fontWeight:600, background:'var(--accent10)', cursor:'pointer' }}>
-            🔁 Adicionar opção / substituição
+            🍽️ Adicionar prato
           </button>
         </div>
       </div>
@@ -559,6 +581,16 @@ function groupItemsBySubName(items) {
     current.entries.push({ item, index })
   })
   return groups
+}
+
+/** Move every item belonging to `subName` to the front of the list, making
+ *  that prato the "principal" one (primary = first group, by convention —
+ *  no extra DB field needed). Items without a sub_name, and other groups,
+ *  keep their relative order after the moved block. */
+function moveGroupToFront(items, subName) {
+  const moved = items.filter(it => it.sub_name === subName)
+  const rest  = items.filter(it => it.sub_name !== subName)
+  return [...moved, ...rest]
 }
 
 /* ─────────────────────────────────────────────
@@ -743,12 +775,12 @@ function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse }) {
 
   const duplicate = async (p, e) => {
     e.stopPropagation()
-    try { const d = await presetService.duplicate(userId, p); setPresets(prev => [...prev, d]); toast('Opção duplicada!') }
+    try { const d = await presetService.duplicate(userId, p); setPresets(prev => [...prev, d]); toast('Prato duplicado!') }
     catch(err) { toast('Erro: '+err.message) }
   }
 
   const remove = async () => {
-    try { await presetService.delete(del.id); setPresets(p => p.filter(x=>x.id!==del.id)); toast('Opção removida.') }
+    try { await presetService.delete(del.id); setPresets(p => p.filter(x=>x.id!==del.id)); toast('Prato removido.') }
     finally { setDel(null) }
   }
 
@@ -768,10 +800,10 @@ function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse }) {
   }
 
   return (
-    <Modal title="Opções desta Refeição" onClose={onClose}>
+    <Modal title="Pratos desta Refeição" onClose={onClose}>
       <button onClick={() => setEditing('new')}
         style={{ width:'100%', padding:'13px', marginBottom:16, border:'1.5px dashed var(--accent)', borderRadius:'var(--r)', color:'var(--accent)', fontSize:13, fontWeight:700, background:'var(--accent10)', cursor:'pointer' }}>
-        + Criar nova opção
+        + Criar novo prato
       </button>
 
       {loading ? <Loader /> : (
@@ -801,7 +833,7 @@ function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse }) {
           )}
           {presets.length === 0 && !loading && (
             <p style={{ fontSize:12, color:'var(--t3)', marginBottom:14 }}>
-              Você ainda não tem opções cadastradas. Crie ou comece com uma sugestão:
+              Você ainda não tem pratos cadastrados. Crie um novo ou comece com uma sugestão:
             </p>
           )}
           {suggestions.map(opt => (
@@ -816,7 +848,7 @@ function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse }) {
           ))}
         </>
       )}
-      {del && <Confirm message={`Excluir a opção "${del.name}"?`} onConfirm={remove} onCancel={() => setDel(null)} />}
+      {del && <Confirm message={`Excluir o prato "${del.name}"?`} onConfirm={remove} onCancel={() => setDel(null)} />}
     </Modal>
   )
 }
@@ -836,26 +868,26 @@ function PresetEditor({ preset, userId, customFoods, onFoodCreated, onClose, onS
   const totals = sumMacros(foods)
 
   const save = async () => {
-    if (!name.trim()) return toast('Dê um nome à opção.')
+    if (!name.trim()) return toast('Dê um nome ao prato.')
     if (!foods.length) return toast('Adicione pelo menos um alimento.')
     setSaving(true)
     try {
       if (preset) await presetService.update(preset.id, { name, icon, foods })
       else        await presetService.create(userId, { name, icon, foods })
-      toast(preset ? 'Opção atualizada!' : 'Opção criada!')
+      toast(preset ? 'Prato atualizado!' : 'Prato criado!')
       await onSaved()
     } catch(e) { toast('Erro: '+e.message) } finally { setSaving(false) }
   }
 
   return (
-    <FormSheet title={preset ? 'Editar Opção' : 'Nova Opção'} onClose={onClose} onSave={save} saving={saving}
-      saveLabel={preset ? 'Salvar alterações' : 'Criar opção'}>
+    <FormSheet title={preset ? 'Editar Prato' : 'Novo Prato'} onClose={onClose} onSave={save} saving={saving}
+      saveLabel={preset ? 'Salvar alterações' : 'Criar prato'}>
       <div style={{ display:'flex', gap:10 }}>
         <select value={icon} onChange={e => setIcon(e.target.value)}
           style={{ background:'var(--bg3)', border:'1.5px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t1)', padding:'10px', fontSize:22, width:56, flexShrink:0 }}>
           {MEAL_ICONS.map(ic => <option key={ic} value={ic}>{ic}</option>)}
         </select>
-        <input className="inp" placeholder="Nome da opção (ex: Mingau de Aveia)" value={name} onChange={e => setName(e.target.value)} autoFocus />
+        <input className="inp" placeholder="Nome do prato (ex: Mingau de Aveia)" value={name} onChange={e => setName(e.target.value)} autoFocus />
       </div>
 
       {foods.length > 0 && (
@@ -882,7 +914,7 @@ function PresetEditor({ preset, userId, customFoods, onFoodCreated, onClose, onS
 
       <button onClick={() => setAddFood(true)}
         style={{ padding:'13px', border:'1.5px dashed var(--b3)', borderRadius:'var(--r)', color:'var(--t2)', fontSize:13, fontWeight:600, background:'none', cursor:'pointer' }}>
-        + Adicionar alimento à opção
+        + Adicionar alimento ao prato
       </button>
 
       {addFood && (

@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../hooks/useAppContext'
 
+// Locks background scroll while any modal/sheet is mounted, so the keyboard
+// opening never fights with the underlying screen's own scroll position.
+export function useBodyScrollLock() {
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [])
+}
+
 // ── Toast ─────────────────────────────────────────────────────
 export function Toast() {
   const { toastMsg } = useApp()
@@ -12,6 +22,7 @@ export function Toast() {
 // Sticky header + scrollable body + sticky footer with Cancel/Save, so the
 // Save button is ALWAYS reachable, even with the keyboard open.
 export function FormSheet({ title, onClose, onSave, saving, saveLabel = 'Salvar', saveDisabled, danger, children }) {
+  useBodyScrollLock()
   useEffect(() => {
     const handler = e => { if (e.key === 'Escape') onClose?.() }
     window.addEventListener('keydown', handler)
@@ -42,6 +53,7 @@ export function FormSheet({ title, onClose, onSave, saving, saveLabel = 'Salvar'
 
 // ── Modal Sheet ───────────────────────────────────────────────
 export function Modal({ onClose, children, title }) {
+  useBodyScrollLock()
   useEffect(() => {
     const handler = e => { if (e.key === 'Escape') onClose?.() }
     window.addEventListener('keydown', handler)
