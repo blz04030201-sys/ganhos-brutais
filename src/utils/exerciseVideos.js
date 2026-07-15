@@ -109,7 +109,4 @@ export function getExerciseVideoId(exerciseName) {
   return null
 }
 
-/** URL de embed do YouTube */
-export function getEmbedUrl(videoId) {
-  return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1`
-}
+// getEmbedUrl removed — app now uses YouTube search links instead of iframe

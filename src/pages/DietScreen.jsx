@@ -701,23 +701,31 @@ function SwapDishPicker({ userId, mealName, customFoods, currentName, onClose, o
   return (
     <Modal title="Trocar Prato" onClose={onClose}>
       {mealSubstitutionHint(groupKey) && (
-        <p style={{ fontSize:11, color:'var(--t3)', marginTop:-10, marginBottom:12 }}>{mealSubstitutionHint(groupKey)}</p>
+        <p style={{ fontSize:11, color:'var(--t3)', marginTop:-10, marginBottom:10 }}>{mealSubstitutionHint(groupKey)}</p>
       )}
 
-      {/* Botão principal: criar nova opção */}
+      {/* Botão fixo no topo: criar nova opção */}
       <button onClick={() => setCreating(true)}
         style={{
-          width:'100%', padding:'12px 14px', marginBottom:14,
-          border:'1.5px dashed var(--accent)', borderRadius:'var(--r)',
-          color:'var(--accent)', fontSize:13, fontWeight:700,
-          background:'var(--accent10)', cursor:'pointer',
-          display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+          width:'100%', padding:'13px 14px', marginBottom:14,
+          border:'none', borderRadius:'var(--r)',
+          color:'#fff', fontSize:13, fontWeight:800,
+          background:'linear-gradient(90deg, #2563EB, #3B82F6)',
+          boxShadow:'0 3px 12px rgba(59,130,246,0.35)',
+          cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8,
         }}>
-        + Nova opção
+        <span style={{ fontSize:16 }}>+</span> Nova opção
       </button>
 
       {loading ? <Loader /> : (
-        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+        <div style={{ display:'flex', flexDirection:'column', gap:8, paddingBottom:8 }}>
+
+          {presets.length > 0 && (
+            <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.08em', color:'var(--t3)', textTransform:'uppercase', marginBottom:2 }}>
+              Opções salvas
+            </div>
+          )}
+
           {/* Opções salvas */}
           {presets.map(p => {
             const m = sumMacros(p.foods || [])
@@ -725,22 +733,27 @@ function SwapDishPicker({ userId, mealName, customFoods, currentName, onClose, o
             return (
               <div key={p.id} style={{
                 display:'flex', alignItems:'center',
-                background: isCurrent ? 'var(--accent10)' : 'var(--bg3)',
+                background: isCurrent ? 'rgba(59,130,246,0.1)' : 'var(--bg3)',
                 border: `1.5px solid ${isCurrent ? 'var(--accent)' : 'var(--b1)'}`,
                 borderRadius:'var(--r)', overflow:'hidden',
               }}>
                 <button onClick={() => !isCurrent && onSelect(p)} disabled={isCurrent}
                   style={{ flex:1, display:'flex', alignItems:'center', gap:10, background:'none', border:'none', textAlign:'left', cursor: isCurrent ? 'default' : 'pointer', padding:'12px 12px', opacity: isCurrent ? 0.75 : 1, minWidth:0 }}>
-                  <span style={{ fontSize:20, flexShrink:0 }}>{p.icon}</span>
+                  <span style={{ fontSize:22, flexShrink:0 }}>{p.icon}</span>
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontWeight:700, fontSize:13, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                      {p.name}{isCurrent ? ' ✓' : ''}
+                    <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:2 }}>
+                      <span style={{ fontWeight:700, fontSize:13, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                        {p.name}
+                      </span>
+                      {isCurrent && (
+                        <span style={{ flexShrink:0, fontSize:9, fontWeight:800, color:'var(--accent)', background:'var(--accent10)', border:'1px solid var(--accent20)', borderRadius:99, padding:'1px 6px' }}>ATUAL</span>
+                      )}
                     </div>
                     <div style={{ fontSize:11, color:'var(--t3)' }}>
                       {Math.round(m.cal)} kcal · P:{Math.round(m.prot)}g · C:{Math.round(m.carb)}g · G:{Math.round(m.fat)}g
                     </div>
                   </div>
-                  {!isCurrent && <span style={{ color:'var(--accent)', fontSize:16, flexShrink:0 }}>→</span>}
+                  {!isCurrent && <span style={{ color:'var(--accent)', fontSize:18, flexShrink:0, fontWeight:300 }}>›</span>}
                 </button>
                 <button onClick={() => setDel(p)}
                   style={{ flexShrink:0, padding:'10px 12px', background:'none', border:'none', borderLeft:'1px solid var(--b2)', color:'var(--red)', fontSize:15, cursor:'pointer' }}>
@@ -753,17 +766,18 @@ function SwapDishPicker({ userId, mealName, customFoods, currentName, onClose, o
           {/* Sem opções cadastradas: mostrar sugestões */}
           {presets.length === 0 && suggestions.length > 0 && (
             <>
-              <p style={{ fontSize:11, color:'var(--t3)', marginTop:4, marginBottom:6 }}>Sugestões para começar:</p>
+              <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.08em', color:'var(--t3)', textTransform:'uppercase', marginBottom:4 }}>Sugestões para começar</div>
               {suggestions.map(opt => {
                 const m = sumMacros(opt.foods || [])
                 return (
                   <button key={opt.key} onClick={() => onSelect(opt)}
-                    style={{ width:'100%', padding:'10px 12px', textAlign:'left', background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:'var(--r)', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
-                    <span style={{ fontSize:18 }}>{opt.icon}</span>
+                    style={{ width:'100%', padding:'11px 12px', textAlign:'left', background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:'var(--r)', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
+                    <span style={{ fontSize:20 }}>{opt.icon}</span>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontWeight:600, fontSize:13, color:'var(--t1)' }}>{opt.name}</div>
-                      <div style={{ fontSize:11, color:'var(--t3)' }}>{Math.round(m.cal)} kcal · P:{Math.round(m.prot)}g</div>
+                      <div style={{ fontSize:11, color:'var(--t3)', marginTop:1 }}>{Math.round(m.cal)} kcal · P:{Math.round(m.prot)}g</div>
                     </div>
+                    <span style={{ color:'var(--accent)', fontSize:18, fontWeight:300 }}>›</span>
                   </button>
                 )
               })}
@@ -771,9 +785,11 @@ function SwapDishPicker({ userId, mealName, customFoods, currentName, onClose, o
           )}
 
           {presets.length === 0 && suggestions.length === 0 && (
-            <p style={{ fontSize:12, color:'var(--t3)', textAlign:'center', padding:'8px 0' }}>
-              Nenhuma opção cadastrada ainda.<br/>Crie a primeira clicando em "+ Nova opção" acima.
-            </p>
+            <div style={{ textAlign:'center', padding:'20px 0 8px', color:'var(--t3)' }}>
+              <div style={{ fontSize:28, marginBottom:8 }}>🍽️</div>
+              <div style={{ fontSize:13, fontWeight:600, color:'var(--t2)', marginBottom:4 }}>Nenhuma opção ainda</div>
+              <div style={{ fontSize:12 }}>Crie a primeira opção clicando em "Nova opção" acima.</div>
+            </div>
           )}
         </div>
       )}
