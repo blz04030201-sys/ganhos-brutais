@@ -618,7 +618,6 @@ function MealCard({ meal, userId, customFoods, onEdit, onDelete, onSwapDish, han
           mealName={meal.name}
           currentName={groups[swapGroup]?.subName}
           customFoods={customFoods}
-          onFoodCreated={() => {}}
           onClose={() => setSwapGroup(null)}
           onSelect={swapDish}
         />
@@ -648,53 +647,137 @@ function MealCard({ meal, userId, customFoods, onEdit, onDelete, onSwapDish, han
    SWAP DISH PICKER — quick prato-to-prato swap,
    used directly from the meal card (no full edit)
 ───────────────────────────────────────────── */
-function SwapDishPicker({ userId, mealName, currentName, onClose, onSelect }) {
-  const [presets, setPresets] = useState([])
-  const [loading, setLoading] = useState(true)
+function SwapDishPicker({ userId, mealName, customFoods, currentName, onClose, onSelect }) {
+  const { toast } = useApp()
+  const [allPresets, setAllPresets] = useState([])
+  const [loading,    setLoading]    = useState(true)
+  const [creating,   setCreating]   = useState(false)   // abrir PresetEditor inline
+  const [del,        setDel]        = useState(null)
 
-  useEffect(() => {
-    presetService.list(userId).then(setPresets).finally(() => setLoading(false))
-  }, [userId])
+  const groupKey    = mealGroupKey(mealName)
+  const presets     = allPresets.filter(p => !p.meal_group || p.meal_group === groupKey)
+  const suggestions = presets.length === 0 ? mealPresetSuggestions(groupKey) : []
 
-  // Only show dishes that belong to this meal's substitution group (e.g.
-  // Café da manhã ↔ Café da tarde, or Almoço ↔ Jantar). Presets created
-  // before this feature existed have no group and remain visible everywhere.
-  const groupKey = mealGroupKey(mealName)
-  const groupPresets = presets.filter(p => !p.meal_group || p.meal_group === groupKey)
-  const suggestions = groupPresets.length === 0 ? mealPresetSuggestions(groupKey) : []
+  const load = async () => {
+    try { setAllPresets(await presetService.list(userId)) }
+    finally { setLoading(false) }
+  }
+  useEffect(() => { load() }, [userId])
+
+  const remove = async () => {
+    try {
+      await presetService.delete(del.id)
+      setAllPresets(prev => prev.filter(x => x.id !== del.id))
+      toast('Opção removida.')
+    } finally { setDel(null) }
+  }
+
+  // Quando o PresetEditor salva, recarrega a lista e seleciona o novo prato
+  const handlePresetSaved = async () => {
+    setCreating(false)
+    const fresh = await presetService.list(userId)
+    setAllPresets(fresh)
+    // Encontra o mais recente (maior sort_order ou último da lista) e seleciona
+    const filtered = fresh.filter(p => !p.meal_group || p.meal_group === groupKey)
+    const newest = filtered[filtered.length - 1]
+    if (newest) onSelect(newest)
+    else onClose()
+  }
+
+  if (creating) {
+    return (
+      <PresetEditor
+        preset={null}
+        mealGroup={groupKey}
+        userId={userId}
+        customFoods={customFoods || []}
+        onFoodCreated={() => {}}
+        onClose={() => setCreating(false)}
+        onSaved={handlePresetSaved}
+      />
+    )
+  }
 
   return (
     <Modal title="Trocar Prato" onClose={onClose}>
       {mealSubstitutionHint(groupKey) && (
-        <p style={{ fontSize:11, color:'var(--t3)', marginTop:-10, marginBottom:14 }}>{mealSubstitutionHint(groupKey)}</p>
+        <p style={{ fontSize:11, color:'var(--t3)', marginTop:-10, marginBottom:12 }}>{mealSubstitutionHint(groupKey)}</p>
       )}
+
+      {/* Botão principal: criar nova opção */}
+      <button onClick={() => setCreating(true)}
+        style={{
+          width:'100%', padding:'12px 14px', marginBottom:14,
+          border:'1.5px dashed var(--accent)', borderRadius:'var(--r)',
+          color:'var(--accent)', fontSize:13, fontWeight:700,
+          background:'var(--accent10)', cursor:'pointer',
+          display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+        }}>
+        + Nova opção
+      </button>
+
       {loading ? <Loader /> : (
         <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-          {groupPresets.length === 0 && suggestions.length === 0 && (
-            <p style={{ fontSize:12, color:'var(--t3)' }}>Nenhum prato cadastrado ainda. Crie opções em "🔄 Trocar prato" dentro de Editar refeição.</p>
-          )}
-          {(groupPresets.length ? groupPresets : suggestions).map(p => {
+          {/* Opções salvas */}
+          {presets.map(p => {
             const m = sumMacros(p.foods || [])
             const isCurrent = p.name === currentName
             return (
-              <button key={p.id || p.key} onClick={() => onSelect(p)} disabled={isCurrent}
-                style={{
-                  width:'100%', padding:'12px 14px', textAlign:'left', display:'flex', alignItems:'center', gap:10,
-                  background: isCurrent ? 'var(--accent10)' : 'var(--bg3)',
-                  border: `1.5px solid ${isCurrent ? 'var(--accent)' : 'var(--b1)'}`,
-                  borderRadius:'var(--r)', cursor: isCurrent ? 'default' : 'pointer', opacity: isCurrent ? 0.7 : 1,
-                }}>
-                <span style={{ fontSize:20, flexShrink:0 }}>{p.icon}</span>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontWeight:700, fontSize:13, color:'var(--t1)' }}>{p.name}{isCurrent ? ' (atual)' : ''}</div>
-                  <div style={{ fontSize:11, color:'var(--t3)' }}>{Math.round(m.cal)} kcal · P:{Math.round(m.prot)}g · C:{Math.round(m.carb)}g · G:{Math.round(m.fat)}g</div>
-                </div>
-                {!isCurrent && <span style={{ color:'var(--accent)', fontSize:16, flexShrink:0 }}>→</span>}
-              </button>
+              <div key={p.id} style={{
+                display:'flex', alignItems:'center',
+                background: isCurrent ? 'var(--accent10)' : 'var(--bg3)',
+                border: `1.5px solid ${isCurrent ? 'var(--accent)' : 'var(--b1)'}`,
+                borderRadius:'var(--r)', overflow:'hidden',
+              }}>
+                <button onClick={() => !isCurrent && onSelect(p)} disabled={isCurrent}
+                  style={{ flex:1, display:'flex', alignItems:'center', gap:10, background:'none', border:'none', textAlign:'left', cursor: isCurrent ? 'default' : 'pointer', padding:'12px 12px', opacity: isCurrent ? 0.75 : 1, minWidth:0 }}>
+                  <span style={{ fontSize:20, flexShrink:0 }}>{p.icon}</span>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontWeight:700, fontSize:13, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                      {p.name}{isCurrent ? ' ✓' : ''}
+                    </div>
+                    <div style={{ fontSize:11, color:'var(--t3)' }}>
+                      {Math.round(m.cal)} kcal · P:{Math.round(m.prot)}g · C:{Math.round(m.carb)}g · G:{Math.round(m.fat)}g
+                    </div>
+                  </div>
+                  {!isCurrent && <span style={{ color:'var(--accent)', fontSize:16, flexShrink:0 }}>→</span>}
+                </button>
+                <button onClick={() => setDel(p)}
+                  style={{ flexShrink:0, padding:'10px 12px', background:'none', border:'none', borderLeft:'1px solid var(--b2)', color:'var(--red)', fontSize:15, cursor:'pointer' }}>
+                  🗑️
+                </button>
+              </div>
             )
           })}
+
+          {/* Sem opções cadastradas: mostrar sugestões */}
+          {presets.length === 0 && suggestions.length > 0 && (
+            <>
+              <p style={{ fontSize:11, color:'var(--t3)', marginTop:4, marginBottom:6 }}>Sugestões para começar:</p>
+              {suggestions.map(opt => {
+                const m = sumMacros(opt.foods || [])
+                return (
+                  <button key={opt.key} onClick={() => onSelect(opt)}
+                    style={{ width:'100%', padding:'10px 12px', textAlign:'left', background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:'var(--r)', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
+                    <span style={{ fontSize:18 }}>{opt.icon}</span>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontWeight:600, fontSize:13, color:'var(--t1)' }}>{opt.name}</div>
+                      <div style={{ fontSize:11, color:'var(--t3)' }}>{Math.round(m.cal)} kcal · P:{Math.round(m.prot)}g</div>
+                    </div>
+                  </button>
+                )
+              })}
+            </>
+          )}
+
+          {presets.length === 0 && suggestions.length === 0 && (
+            <p style={{ fontSize:12, color:'var(--t3)', textAlign:'center', padding:'8px 0' }}>
+              Nenhuma opção cadastrada ainda.<br/>Crie a primeira clicando em "+ Nova opção" acima.
+            </p>
+          )}
         </div>
       )}
+      {del && <Confirm message={`Excluir a opção "${del.name}"?`} onConfirm={remove} onCancel={() => setDel(null)} />}
     </Modal>
   )
 }
@@ -807,7 +890,7 @@ function MealEditor({ meal, plan, userId, customFoods, onFoodCreated, onSave, on
           </button>
           <button onClick={() => setPresets(true)}
             style={{ padding:'13px', border:'1.5px dashed var(--accent)', borderRadius:'var(--r)', color:'var(--accent)', fontSize:13, fontWeight:600, background:'var(--accent10)', cursor:'pointer' }}>
-            🔄 Trocar prato
+            🔁 Adicionar prato
           </button>
         </div>
       </div>
@@ -1147,11 +1230,9 @@ function PresetEditor({ preset, userId, customFoods, onFoodCreated, onClose, onS
     setSaving(true)
     try {
       if (preset) await presetService.update(preset.id, { name, icon, foods })
-      const result = preset
-        ? await presetService.update(preset.id, { name, icon, foods })
-        : await presetService.create(userId, { name, icon, foods, meal_group: mealGroup || null })
+      else        await presetService.create(userId, { name, icon, foods, meal_group: mealGroup || null })
       toast(preset ? 'Opção atualizada!' : 'Opção criada!')
-      await onSaved(result)
+      await onSaved()
     } catch(e) { toast('Erro: '+e.message) } finally { setSaving(false) }
   }
 

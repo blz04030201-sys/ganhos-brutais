@@ -316,7 +316,7 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
   const [editing,   setEditing]   = useState(null)
   const [del,       setDel]       = useState(null)
   const [form,      setForm]      = useState({ name:'', valid_sets:2 })
-  const [videoEx,   setVideoEx]   = useState(null)   // exercício com vídeo aberto
+  const [videoEx,   setVideoEx]   = useState(null)
 
   useEffect(() => { load() }, [workout?.id])
   const load = async () => {
@@ -429,9 +429,9 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
                 </div>
                 <div style={{ display:'flex', borderTop:'1px solid var(--b2)' }}>
                   <button onClick={() => onHistory(ex)} style={{ flex:1, padding:'6px', fontSize:11, fontWeight:600, color:'var(--t2)', background:'none', border:'none', borderRight:'1px solid var(--b2)', cursor:'pointer' }}>📊 Histórico</button>
-                  <button onClick={() => onLog(ex)} style={{ flex:1, padding:'6px', fontSize:11, fontWeight:700, color:'var(--accent)', background:'var(--accent10)', border:'none', borderRight:'1px solid var(--b2)', cursor:'pointer' }}>➕ Registrar</button>
+                  <button onClick={() => onLog(ex)} style={{ flex:2, padding:'6px', fontSize:11, fontWeight:700, color:'var(--accent)', background:'var(--accent10)', border:'none', borderRight:'1px solid var(--b2)', cursor:'pointer' }}>➕ Registrar</button>
                   <button onClick={() => setVideoEx(ex)} title="Ver execução"
-                    style={{ padding:'6px 10px', fontSize:13, color:'var(--t3)', background:'none', border:'none', cursor:'pointer' }}>▶</button>
+                    style={{ padding:'6px 11px', fontSize:14, color: getExerciseVideoId(ex.name) ? 'var(--accent)' : 'var(--t4)', background:'none', border:'none', cursor:'pointer', flexShrink:0 }}>▶</button>
                 </div>
               </div>
             )})}
@@ -462,42 +462,38 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
 }
 
 /* ─────────────────────────────────────────────
-   LOG SESSION
-───────────────────────────────────────────── */
-
-/* ─────────────────────────────────────────────
    VIDEO MODAL — demonstração do exercício
 ───────────────────────────────────────────── */
 function VideoModal({ ex, onClose }) {
   const videoId = getExerciseVideoId(ex.name)
-
   return (
     <Modal title={ex.name} onClose={onClose}>
       {videoId ? (
-        <div style={{ borderRadius:'var(--r)', overflow:'hidden', background:'#000', aspectRatio:'16/9' }}>
+        <div style={{ borderRadius:'var(--r)', overflow:'hidden', background:'#000', aspectRatio:'16/9', width:'100%' }}>
           <iframe
             src={getEmbedUrl(videoId)}
             title={`Execução: ${ex.name}`}
             frameBorder="0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
-            style={{ width:'100%', height:'100%', display:'block' }}
+            style={{ width:'100%', height:'100%', display:'block', minHeight:200 }}
           />
         </div>
       ) : (
-        <div style={{ textAlign:'center', padding:'32px 16px', color:'var(--t3)', fontSize:13, lineHeight:1.6 }}>
-          <div style={{ fontSize:32, marginBottom:12 }}>🎬</div>
+        <div style={{ textAlign:'center', padding:'36px 16px', color:'var(--t3)', lineHeight:1.7 }}>
+          <div style={{ fontSize:36, marginBottom:12 }}>🎬</div>
           <div style={{ fontWeight:700, color:'var(--t2)', marginBottom:6 }}>Vídeo indisponível</div>
-          <div>Ainda não há demonstração cadastrada para <b style={{ color:'var(--t1)' }}>{ex.name}</b>.</div>
+          <div style={{ fontSize:13 }}>Ainda não há demonstração para <b style={{ color:'var(--t1)' }}>{ex.name}</b>.</div>
         </div>
       )}
-      <p style={{ fontSize:10, color:'var(--t4)', marginTop:10, textAlign:'center' }}>
-        Fonte: YouTube · apenas para fins educativos
-      </p>
+      <p style={{ fontSize:10, color:'var(--t4)', marginTop:10, textAlign:'center' }}>Fonte: YouTube · fins educativos</p>
     </Modal>
   )
 }
 
+/* ─────────────────────────────────────────────
+   LOG SESSION
+───────────────────────────────────────────── */
 function LogSession({ ex, gym, workout, onBack, onDone }) {
   const { userId, toast } = useApp()
   const [logs,    setLogs]    = useState([])
