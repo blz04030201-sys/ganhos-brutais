@@ -613,8 +613,15 @@ function MealCard({ meal, userId, customFoods, onEdit, onDelete, onSwapDish, han
 
       {del && <Confirm message={`Excluir "${meal.name}"?`} onConfirm={onDelete} onCancel={() => setDel(false)} />}
       {swapGroup !== null && (
-        <SwapDishPicker userId={userId} mealName={meal.name} currentName={groups[swapGroup]?.subName}
-          onClose={() => setSwapGroup(null)} onSelect={swapDish} />
+        <SwapDishPicker
+          userId={userId}
+          mealName={meal.name}
+          currentName={groups[swapGroup]?.subName}
+          customFoods={customFoods}
+          onFoodCreated={() => {}}
+          onClose={() => setSwapGroup(null)}
+          onSelect={swapDish}
+        />
       )}
     </div>
   )
@@ -664,7 +671,7 @@ function SwapDishPicker({ userId, mealName, currentName, onClose, onSelect }) {
       {loading ? <Loader /> : (
         <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
           {groupPresets.length === 0 && suggestions.length === 0 && (
-            <p style={{ fontSize:12, color:'var(--t3)' }}>Nenhum prato cadastrado ainda. Crie opções em "🔁 Adicionar prato" dentro de Editar refeição.</p>
+            <p style={{ fontSize:12, color:'var(--t3)' }}>Nenhum prato cadastrado ainda. Crie opções em "🔄 Trocar prato" dentro de Editar refeição.</p>
           )}
           {(groupPresets.length ? groupPresets : suggestions).map(p => {
             const m = sumMacros(p.foods || [])
@@ -800,7 +807,7 @@ function MealEditor({ meal, plan, userId, customFoods, onFoodCreated, onSave, on
           </button>
           <button onClick={() => setPresets(true)}
             style={{ padding:'13px', border:'1.5px dashed var(--accent)', borderRadius:'var(--r)', color:'var(--accent)', fontSize:13, fontWeight:600, background:'var(--accent10)', cursor:'pointer' }}>
-            🔁 Adicionar prato
+            🔄 Trocar prato
           </button>
         </div>
       </div>
@@ -1140,9 +1147,11 @@ function PresetEditor({ preset, userId, customFoods, onFoodCreated, onClose, onS
     setSaving(true)
     try {
       if (preset) await presetService.update(preset.id, { name, icon, foods })
-      else        await presetService.create(userId, { name, icon, foods, meal_group: mealGroup || null })
+      const result = preset
+        ? await presetService.update(preset.id, { name, icon, foods })
+        : await presetService.create(userId, { name, icon, foods, meal_group: mealGroup || null })
       toast(preset ? 'Opção atualizada!' : 'Opção criada!')
-      await onSaved()
+      await onSaved(result)
     } catch(e) { toast('Erro: '+e.message) } finally { setSaving(false) }
   }
 
