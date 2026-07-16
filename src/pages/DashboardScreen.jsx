@@ -18,7 +18,7 @@ const HOUR = new Date().getHours()
 const GREETING = HOUR < 12 ? 'Bom dia,' : HOUR < 18 ? 'Boa tarde,' : 'Boa noite,'
 
 export default function DashboardScreen({ setTab }) {
-  const { userId, profile, toast } = useApp()
+  const { userId, profile, toast, accentColor } = useApp()
 
   const [gyms,         setGyms]         = useState([])
   const [selectedGym,  setSelectedGym]  = useState(null)
@@ -261,7 +261,7 @@ export default function DashboardScreen({ setTab }) {
 }
 
 // ── WORKOUT CARD ──────────────────────────────────────────────
-function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGym, workouts, onSelectWorkout, onStart, setTab }) {
+function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGym, workouts, onSelectWorkout, onStart, setTab, accentColor = '#3B82F6' }) {
   const muscleGroups = wk?.display_name?.split(/[+·,]/).map(s => s.trim()).filter(Boolean) || []
   const [switching, setSwitching] = useState(false)
 
@@ -271,25 +271,26 @@ function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGy
       overflow:'hidden',
       position:'relative',
       minHeight:170,
-      background:'linear-gradient(135deg, #0a1628 0%, #0d1f3c 40%, #091428 100%)',
-      border:'1px solid rgba(59,130,246,0.2)',
+      background:`linear-gradient(135deg, color-mix(in srgb, ${accentColor} 12%, #060810) 0%, color-mix(in srgb, ${accentColor} 18%, #0a0f1e) 40%, color-mix(in srgb, ${accentColor} 8%, #060810) 100%)`,
+      border:`1px solid color-mix(in srgb, ${accentColor} 25%, transparent)`,
       boxShadow:'0 8px 32px rgba(0,0,0,0.5)',
+      transition:'background 0.25s, border-color 0.25s',
     }}>
       {/* Glow effects */}
-      <div style={{ position:'absolute', top:-40, right:-20, width:200, height:200, borderRadius:'50%', background:'rgba(59,130,246,0.12)', filter:'blur(40px)', pointerEvents:'none' }} />
-      <div style={{ position:'absolute', bottom:-40, left:-20, width:160, height:160, borderRadius:'50%', background:'rgba(129,140,248,0.08)', filter:'blur(50px)', pointerEvents:'none' }} />
+      <div style={{ position:'absolute', top:-40, right:-20, width:200, height:200, borderRadius:'50%', background:`color-mix(in srgb, ${accentColor} 12%, transparent)`, filter:'blur(40px)', pointerEvents:'none', transition:'background 0.25s' }} />
+      <div style={{ position:'absolute', bottom:-40, left:-20, width:160, height:160, borderRadius:'50%', background:`color-mix(in srgb, ${accentColor} 8%, transparent)`, filter:'blur(50px)', pointerEvents:'none', transition:'background 0.25s' }} />
       {/* Grid lines */}
       <svg style={{ position:'absolute', inset:0, width:'100%', height:'100%', opacity:0.07, pointerEvents:'none' }} viewBox="0 0 300 170" preserveAspectRatio="xMidYMid slice">
-        {[0,1,2,3,4,5].map(i=><line key={i} x1={i*60} y1="0" x2={i*60} y2="170" stroke="#3B82F6" strokeWidth="1"/>)}
-        {[0,1,2,3].map(i=><line key={i} x1="0" y1={i*57} x2="300" y2={i*57} stroke="#3B82F6" strokeWidth="1"/>)}
+        {[0,1,2,3,4,5].map(i=><line key={i} x1={i*60} y1="0" x2={i*60} y2="170" stroke={accentColor} strokeWidth="1"/>)}
+        {[0,1,2,3].map(i=><line key={i} x1="0" y1={i*57} x2="300" y2={i*57} stroke={accentColor} strokeWidth="1"/>)}
       </svg>
 
       <div style={{ position:'relative', padding:'16px' }}>
         {/* Label */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <div style={{ width:28, height:28, borderRadius:8, background:'rgba(59,130,246,0.2)', border:'1px solid rgba(59,130,246,0.3)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14 }}>🏋️</div>
-            <span style={{ fontSize:10, fontWeight:800, color:'#60A5FA', textTransform:'uppercase', letterSpacing:'0.12em' }}>Treino de Hoje</span>
+            <div style={{ width:28, height:28, borderRadius:8, background:`color-mix(in srgb, ${accentColor} 20%, transparent)`, border:`1px solid color-mix(in srgb, ${accentColor} 30%, transparent)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14 }}>🏋️</div>
+            <span style={{ fontSize:10, fontWeight:800, color:`color-mix(in srgb, ${accentColor} 80%, white)`, textTransform:'uppercase', letterSpacing:'0.12em' }}>Treino de Hoje</span>
           </div>
           {wk && (
             <button onClick={() => setSwitching(s => !s)}
@@ -343,7 +344,7 @@ function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGy
             {muscleGroups.length > 0 && (
               <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:12 }}>
                 {muscleGroups.map((m,i) => (
-                  <span key={i} style={{ padding:'3px 10px', borderRadius:99, fontSize:11, fontWeight:700, background:'rgba(59,130,246,0.15)', border:'1px solid rgba(59,130,246,0.25)', color:'#93C5FD' }}>
+                  <span key={i} style={{ padding:'3px 10px', borderRadius:99, fontSize:11, fontWeight:700, background:`color-mix(in srgb, ${accentColor} 15%, transparent)`, border:`1px solid color-mix(in srgb, ${accentColor} 25%, transparent)`, color:`color-mix(in srgb, ${accentColor} 80%, white)` }}>
                     {m}
                   </span>
                 ))}
@@ -358,7 +359,7 @@ function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGy
                   <span>{progress}%</span>
                 </div>
                 <div style={{ height:4, background:'rgba(255,255,255,0.1)', borderRadius:99, overflow:'hidden' }}>
-                  <div style={{ height:'100%', width:`${progress}%`, background:'linear-gradient(90deg,#3B82F6,#60A5FA)', borderRadius:99, transition:'width 0.4s' }} />
+                  <div style={{ height:'100%', width:`${progress}%`, background:`linear-gradient(90deg, ${accentColor}, color-mix(in srgb, ${accentColor} 70%, white))`, borderRadius:99, transition:'width 0.4s' }} />
                 </div>
               </div>
             )}
@@ -368,11 +369,12 @@ function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGy
               onClick={onStart}
               style={{
                 width:'100%', padding:'11px', borderRadius:'var(--r)',
-                background:'linear-gradient(90deg, #2563EB, #3B82F6)',
+                background:`linear-gradient(90deg, color-mix(in srgb, ${accentColor} 85%, black), ${accentColor})`,
                 border:'none', color:'#fff', fontSize:13, fontWeight:800,
                 letterSpacing:'0.06em', textTransform:'uppercase',
-                boxShadow:'0 4px 16px rgba(37,99,235,0.4)',
+                boxShadow:`0 4px 16px color-mix(in srgb, ${accentColor} 40%, transparent)`,
                 cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                transition:'background 0.25s, box-shadow 0.25s',
               }}
             >
               {doneCount > 0 ? '▶ Continuar Treino' : '▶ Iniciar Treino'} →
