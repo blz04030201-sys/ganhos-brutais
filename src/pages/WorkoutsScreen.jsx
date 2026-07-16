@@ -3,7 +3,6 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useApp } from '../hooks/useAppContext'
 import { gymService, workoutService, exerciseService, logService } from '../services/workouts'
 import { WORKOUT_COLORS, GYM_ICONS, GYM_COLORS, dateLabel, calcVolume } from '../utils/helpers'
-import { getExerciseVideoId } from '../utils/exerciseVideos'
 import { consumeWorkoutIntent } from '../utils/navIntent'
 import { useDragSort } from '../hooks/useDragSort'
 import { Modal, FormSheet, Confirm, Loader, Empty, SheetPicker } from '../components/UI'
@@ -316,7 +315,6 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
   const [editing,   setEditing]   = useState(null)
   const [del,       setDel]       = useState(null)
   const [form,      setForm]      = useState({ name:'', valid_sets:2 })
-  const [videoEx,   setVideoEx]   = useState(null)
 
   useEffect(() => { load() }, [workout?.id])
   const load = async () => {
@@ -427,13 +425,23 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
                     <button onClick={e => { e.stopPropagation(); setDel(ex) }} style={{ color:'var(--red)', padding:'2px 5px', fontSize:14, background:'none', border:'none', cursor:'pointer' }}>🗑️</button>
                   </div>
                 </div>
-                <div style={{ display:'flex', borderTop:'1px solid var(--b2)' }}>
-                  <button onClick={() => onHistory(ex)} style={{ flex:1, padding:'6px', fontSize:11, fontWeight:600, color:'var(--t2)', background:'none', border:'none', borderRight:'1px solid var(--b2)', cursor:'pointer' }}>📊 Histórico</button>
-                  <button onClick={() => onLog(ex)} style={{ flex:2, padding:'6px', fontSize:11, fontWeight:700, color:'var(--accent)', background:'var(--accent10)', border:'none', borderRight:'1px solid var(--b2)', cursor:'pointer' }}>➕ Registrar</button>
-                  <button onClick={() => setVideoEx(ex)}
-                    style={{ padding:'5px 10px', display:'flex', alignItems:'center', gap:4, background:'rgba(37,99,235,0.13)', border:'none', cursor:'pointer', flexShrink:0, borderLeft:'1px solid var(--b2)' }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="#FF0000"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8z"/><polygon fill="#fff" points="9.6 15.6 15.8 12 9.6 8.4 9.6 15.6"/></svg>
-                    <span style={{ fontSize:10, fontWeight:800, color:'#60A5FA', letterSpacing:'0.02em' }}>Ver execução</span>
+                <div style={{ display:'flex', borderTop:'1px solid var(--b2)', alignItems:'stretch' }}>
+                  {/* Histórico — esquerda, discreto */}
+                  <button onClick={() => onHistory(ex)}
+                    style={{ flex:1, padding:'7px 6px', fontSize:11, fontWeight:600, color:'var(--t3)', background:'none', border:'none', borderRight:'1px solid var(--b2)', cursor:'pointer' }}>
+                    📊 Histórico
+                  </button>
+                  {/* YouTube — centro, ícone pequeno apenas */}
+                  <button
+                    onClick={() => window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name)}`, '_blank', 'noopener,noreferrer')}
+                    title={`Buscar "${ex.name}" no YouTube`}
+                    style={{ padding:'7px 12px', display:'flex', alignItems:'center', justifyContent:'center', background:'none', border:'none', borderRight:'1px solid var(--b2)', cursor:'pointer', flexShrink:0 }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24"><path fill="#FF0000" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8z"/><polygon fill="#fff" points="9.6 15.6 15.8 12 9.6 8.4 9.6 15.6"/></svg>
+                  </button>
+                  {/* Registrar — direita, destaque total */}
+                  <button onClick={() => onLog(ex)}
+                    style={{ flex:2, padding:'7px 10px', fontSize:12, fontWeight:800, color:'#fff', background:'linear-gradient(90deg,#2563EB,#3B82F6)', border:'none', cursor:'pointer', letterSpacing:'0.02em' }}>
+                    ➕ Registrar
                   </button>
                 </div>
               </div>
@@ -459,72 +467,7 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
         </FormSheet>
       )}
       {del && <Confirm message={`Excluir "${del?.name}"?`} onConfirm={remove} onCancel={() => setDel(null)} />}
-      {videoEx && <VideoModal ex={videoEx} onClose={() => setVideoEx(null)} />}
     </div>
-  )
-}
-
-/* ─────────────────────────────────────────────
-   VIDEO MODAL — demonstração do exercício
-───────────────────────────────────────────── */
-function VideoModal({ ex, onClose }) {
-  // Monta a URL de busca do YouTube Shorts com o nome do exercício
-  const query   = encodeURIComponent(ex.name + ' execução como fazer')
-  const ytUrl   = `https://www.youtube.com/results?search_query=${query}`
-  const ytShort = `https://www.youtube.com/shorts?search_query=${encodeURIComponent(ex.name + ' execução')}`
-
-  const open = (url) => { window.open(url, '_blank', 'noopener,noreferrer'); onClose() }
-
-  return (
-    <Modal title={`Ver execução — ${ex.name}`} onClose={onClose}>
-      <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-        {/* Visual do exercício */}
-        <div style={{
-          borderRadius:'var(--r)', overflow:'hidden',
-          background:'linear-gradient(135deg,#0a1628,#0d1f3c)',
-          border:'1px solid rgba(59,130,246,0.2)',
-          padding:'28px 20px', textAlign:'center',
-        }}>
-          <div style={{ fontSize:44, marginBottom:10 }}>🏋️</div>
-          <div style={{ fontWeight:800, fontSize:17, color:'var(--t1)', marginBottom:6 }}>{ex.name}</div>
-          <div style={{ fontSize:12, color:'var(--t3)' }}>{ex.valid_sets} série{ex.valid_sets!==1?'s':''} válida{ex.valid_sets!==1?'s':''}</div>
-        </div>
-
-        <p style={{ fontSize:12, color:'var(--t3)', textAlign:'center', lineHeight:1.5 }}>
-          Escolha como ver a execução correta:
-        </p>
-
-        {/* Botão principal: YouTube Shorts */}
-        <button onClick={() => open(ytShort)}
-          style={{
-            display:'flex', alignItems:'center', justifyContent:'center', gap:10,
-            width:'100%', padding:'15px',
-            background:'linear-gradient(135deg,#FF0000,#CC0000)',
-            border:'none', borderRadius:'var(--r)',
-            color:'#fff', fontSize:14, fontWeight:800, cursor:'pointer',
-            boxShadow:'0 4px 16px rgba(255,0,0,0.3)',
-          }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8z"/><polygon points="9.6 15.6 15.8 12 9.6 8.4 9.6 15.6"/></svg>
-          Ver Shorts de {ex.name}
-        </button>
-
-        {/* Botão secundário: busca geral */}
-        <button onClick={() => open(ytUrl)}
-          style={{
-            display:'flex', alignItems:'center', justifyContent:'center', gap:10,
-            width:'100%', padding:'12px',
-            background:'rgba(255,0,0,0.08)', border:'1.5px solid rgba(255,0,0,0.25)',
-            borderRadius:'var(--r)', color:'#F87171', fontSize:13, fontWeight:700, cursor:'pointer',
-          }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="#F87171"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8z"/><polygon fill="#fff" points="9.6 15.6 15.8 12 9.6 8.4 9.6 15.6"/></svg>
-          Buscar vídeos de {ex.name}
-        </button>
-
-        <p style={{ fontSize:10, color:'var(--t4)', textAlign:'center' }}>
-          Abre o YouTube com a busca já preenchida
-        </p>
-      </div>
-    </Modal>
   )
 }
 
