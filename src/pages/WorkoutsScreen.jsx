@@ -440,7 +440,7 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
                   </button>
                   {/* Registrar — direita, destaque total */}
                   <button onClick={() => onLog(ex)}
-                    style={{ flex:2, padding:'7px 10px', fontSize:12, fontWeight:800, color:'#fff', background:'linear-gradient(90deg,#2563EB,#3B82F6)', border:'none', cursor:'pointer', letterSpacing:'0.02em' }}>
+                    style={{ flex:2, padding:'5px 8px', fontSize:11, fontWeight:700, color:'#fff', background:'linear-gradient(90deg,#2563EB,#3B82F6)', border:'none', cursor:'pointer', letterSpacing:'0.02em' }}>
                     ➕ Registrar
                   </button>
                 </div>
