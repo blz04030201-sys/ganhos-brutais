@@ -144,6 +144,37 @@ create table if not exists exercise_sets (
   created_at  timestamptz default now()
 );
 
+-- Cardio: referência fixa criada por treino (igual a um exercício), com
+-- posição antes/depois; cardio_logs guarda o que foi feito em cada data.
+create table if not exists cardio_configs (
+  id            uuid primary key default uuid_generate_v4(),
+  workout_id    uuid not null references workouts(id) on delete cascade,
+  user_id       uuid not null references profiles(id) on delete cascade,
+  type          text not null default 'Personalizado',
+  duration_min  integer,
+  intensity     text,
+  distance_km   numeric(6,2),
+  calories      integer,
+  notes         text,
+  position      text not null default 'depois' check (position in ('antes','depois')),
+  sort_order    integer default 0,
+  created_at    timestamptz default now()
+);
+
+create table if not exists cardio_logs (
+  id                uuid primary key default uuid_generate_v4(),
+  cardio_config_id  uuid not null references cardio_configs(id) on delete cascade,
+  user_id           uuid not null references profiles(id) on delete cascade,
+  log_date          date not null,
+  type              text,
+  duration_min      integer,
+  intensity         text,
+  distance_km       numeric(6,2),
+  calories          integer,
+  notes             text,
+  created_at        timestamptz default now()
+);
+
 -- ── INDEXES ───────────────────────────────────────────────────
 
 create index if not exists idx_body_measurements_user_date  on body_measurements(user_id, date desc);
@@ -163,6 +194,10 @@ create index if not exists idx_exercise_logs_exercise_date  on exercise_logs(exe
 create index if not exists idx_exercise_logs_user_date      on exercise_logs(user_id, log_date desc);
 create index if not exists idx_exercise_sets_log            on exercise_sets(log_id, set_number);
 create index if not exists idx_exercise_sets_user           on exercise_sets(user_id);
+create index if not exists idx_cardio_configs_workout       on cardio_configs(workout_id, position, sort_order);
+create index if not exists idx_cardio_configs_user          on cardio_configs(user_id);
+create index if not exists idx_cardio_logs_config_date      on cardio_logs(cardio_config_id, log_date desc);
+create index if not exists idx_cardio_logs_user_date        on cardio_logs(user_id, log_date desc);
 
 -- ── ROW LEVEL SECURITY ───────────────────────────────────────
 
@@ -178,6 +213,8 @@ alter table workouts           enable row level security;
 alter table exercises          enable row level security;
 alter table exercise_logs      enable row level security;
 alter table exercise_sets      enable row level security;
+alter table cardio_configs     enable row level security;
+alter table cardio_logs        enable row level security;
 
 -- ── POLICIES (drop first to avoid "already exists" error) ────
 
@@ -238,6 +275,14 @@ create policy "Own exercise logs" on exercise_logs for all using (auth.uid() = u
 -- exercise_sets
 drop policy if exists "Own exercise sets" on exercise_sets;
 create policy "Own exercise sets" on exercise_sets for all using (auth.uid() = user_id);
+
+-- cardio_configs
+drop policy if exists "Own cardio configs" on cardio_configs;
+create policy "Own cardio configs" on cardio_configs for all using (auth.uid() = user_id);
+
+-- cardio_logs
+drop policy if exists "Own cardio logs" on cardio_logs;
+create policy "Own cardio logs" on cardio_logs for all using (auth.uid() = user_id);
 
 -- ── FUNCTIONS & TRIGGERS ─────────────────────────────────────
 

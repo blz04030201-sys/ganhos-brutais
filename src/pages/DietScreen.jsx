@@ -304,7 +304,7 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
 
       {/* ── CARD 1: META DIÁRIA — total de calorias vs. meta ── */}
       <div style={{ background:'linear-gradient(135deg, #0c0c1c 0%, #0e0e20 100%)', border:'1px solid var(--b1)', borderRadius:'var(--rlg)', padding:'14px 16px 13px', position:'relative', overflow:'hidden' }}>
-        <div style={{ position:'absolute', top:-40, right:-40, width:120, height:120, borderRadius:'50%', background:'radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%)', pointerEvents:'none' }} />
+        <div style={{ position:'absolute', top:-40, right:-40, width:120, height:120, borderRadius:'50%', background:'radial-gradient(circle, var(--accent20) 0%, transparent 70%)', pointerEvents:'none' }} />
 
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
           <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'var(--t3)', textTransform:'uppercase' }}>Meta Diária</div>
@@ -327,7 +327,7 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
             <svg width="60" height="60" viewBox="0 0 100 100">
               <circle cx={CX} cy={CY} r={R} fill="none" stroke="var(--b1)" strokeWidth="9" />
               <circle cx={CX} cy={CY} r={R} fill="none"
-                stroke={kcalPct>=100?'#10B981':'#3B82F6'} strokeWidth="9" strokeLinecap="round"
+                stroke={kcalPct>=100?'#10B981':'var(--accent)'} strokeWidth="9" strokeLinecap="round"
                 strokeDasharray={`${(kcalPct/100*circ).toFixed(2)} ${circ.toFixed(2)}`}
                 strokeDashoffset={circ/4}
                 style={{ transition:'stroke-dasharray .5s' }} />
@@ -338,7 +338,7 @@ function MacroSummary({ totals, goals, weight, pct, onGoals }) {
 
         {/* Kcal progress bar */}
         <div style={{ height:5, background:'var(--b1)', borderRadius:99, overflow:'hidden' }}>
-          <div style={{ height:'100%', width:`${kcalPct}%`, background:`linear-gradient(90deg, #3B82F6, ${kcalPct>=100?'#10B981':'#818CF8'})`, borderRadius:99, transition:'width .5s' }} />
+          <div style={{ height:'100%', width:`${kcalPct}%`, background:`linear-gradient(90deg, var(--accent), ${kcalPct>=100?'#10B981':'var(--accentL)'})`, borderRadius:99, transition:'width .5s' }} />
         </div>
       </div>
 
@@ -710,8 +710,8 @@ function SwapDishPicker({ userId, mealName, customFoods, currentName, onClose, o
           width:'100%', padding:'13px 14px', marginBottom:14,
           border:'none', borderRadius:'var(--r)',
           color:'#fff', fontSize:13, fontWeight:800,
-          background:'linear-gradient(90deg, #2563EB, #3B82F6)',
-          boxShadow:'0 3px 12px rgba(59,130,246,0.35)',
+          background:'linear-gradient(90deg, var(--accentD), var(--accent))',
+          boxShadow:'0 3px 12px var(--accent20)',
           cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8,
         }}>
         <span style={{ fontSize:16 }}>+</span> Nova opção
@@ -733,7 +733,7 @@ function SwapDishPicker({ userId, mealName, customFoods, currentName, onClose, o
             return (
               <div key={p.id} style={{
                 display:'flex', alignItems:'center',
-                background: isCurrent ? 'rgba(59,130,246,0.1)' : 'var(--bg3)',
+                background: isCurrent ? 'var(--accent10)' : 'var(--bg3)',
                 border: `1.5px solid ${isCurrent ? 'var(--accent)' : 'var(--b1)'}`,
                 borderRadius:'var(--r)', overflow:'hidden',
               }}>

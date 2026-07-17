@@ -2,11 +2,34 @@ import { useState, useEffect, useRef } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useApp } from '../hooks/useAppContext'
 import { gymService, workoutService, exerciseService, logService } from '../services/workouts'
-import { cardioService } from '../services/cardio'
+import { cardioService, cardioConfigService, CARDIO_TYPES, cardioIcon } from '../services/cardio'
 import { WORKOUT_COLORS, GYM_ICONS, GYM_COLORS, dateLabel, calcVolume } from '../utils/helpers'
 import { consumeWorkoutIntent } from '../utils/navIntent'
 import { useDragSort } from '../hooks/useDragSort'
 import { Modal, FormSheet, Confirm, Loader, Empty, SheetPicker } from '../components/UI'
+
+const emptyCardioConfigForm = () => ({ type:'Esteira', customType:'', duration_min:'', intensity:'', distance_km:'', calories:'', notes:'', position:'depois' })
+
+function CardioConfigCard({ c, onEdit, onDelete }) {
+  return (
+    <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--r)', padding:'10px 12px', display:'flex', alignItems:'center', gap:10 }}>
+      <span style={{ fontSize:18, flexShrink:0 }}>{cardioIcon(c.type)}</span>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ fontWeight:700, fontSize:13, color:'var(--t1)' }}>{c.type}</div>
+        <div style={{ fontSize:11.5, color:'var(--t3)' }}>
+          {[
+            c.duration_min ? `${c.duration_min} min` : null,
+            c.intensity,
+            c.distance_km ? `${c.distance_km} km` : null,
+            c.calories ? `${c.calories} kcal` : null,
+          ].filter(Boolean).join(' · ') || 'sem detalhes definidos'}
+        </div>
+      </div>
+      <button onClick={() => onEdit(c)} style={{ color:'var(--t2)', fontSize:14, background:'none', border:'none', cursor:'pointer', padding:'4px', flexShrink:0 }}>✏️</button>
+      <button onClick={() => onDelete(c)} style={{ color:'var(--red)', fontSize:14, background:'none', border:'none', cursor:'pointer', padding:'4px', flexShrink:0 }}>🗑️</button>
+    </div>
+  )
+}
 
 export default function WorkoutsScreen() {
   const [view, setView] = useState('gyms')
@@ -317,20 +340,70 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
   const [del,       setDel]       = useState(null)
   const [form,      setForm]      = useState({ name:'', valid_sets:2 })
 
+  // Cardio — referência fixa do treino (criada aqui, igual a um exercício)
+  const [cardioConfigs,   setCardioConfigs]   = useState([])
+  const [cardioModal,     setCardioModal]     = useState(false)
+  const [editingCardio,   setEditingCardio]   = useState(null)
+  const [delCardio,       setDelCardio]       = useState(null)
+  const [cardioForm,      setCardioForm]      = useState(emptyCardioConfigForm())
+  const [cardioSaving,    setCardioSaving]    = useState(false)
+
   useEffect(() => { load() }, [workout?.id])
   const load = async () => {
     try {
       const data = await exerciseService.listByWorkout(workout.id)
       setExercises(data)
       const ids = data.map(e => e.id)
-      const [last, prMap] = await Promise.all([
+      const [last, prMap, cfgs] = await Promise.all([
         logService.listLatestByExerciseIds(ids),
         logService.listPRsByExerciseIds(ids),
+        cardioConfigService.listByWorkout(workout.id),
       ])
       setLastSets(last)
       setPrs(prMap)
+      setCardioConfigs(cfgs)
     } finally { setLoading(false) }
   }
+
+  const openNewCardio  = () => { setEditingCardio(null); setCardioForm(emptyCardioConfigForm()); setCardioModal(true) }
+  const openEditCardio = (c) => {
+    setEditingCardio(c)
+    setCardioForm({
+      type: CARDIO_TYPES.some(t => t.key === c.type) ? c.type : 'Personalizado',
+      customType: CARDIO_TYPES.some(t => t.key === c.type) ? '' : c.type,
+      duration_min: c.duration_min || '', intensity: c.intensity || '',
+      distance_km: c.distance_km || '', calories: c.calories || '',
+      notes: c.notes || '', position: c.position || 'depois',
+    })
+    setCardioModal(true)
+  }
+
+  const saveCardioConfig = async () => {
+    const type = cardioForm.type === 'Personalizado' && cardioForm.customType.trim() ? cardioForm.customType.trim() : cardioForm.type
+    setCardioSaving(true)
+    try {
+      const fields = { ...cardioForm, type }
+      if (editingCardio) {
+        const u = await cardioConfigService.update(editingCardio.id, fields)
+        setCardioConfigs(cs => cs.map(x => x.id===editingCardio.id ? u : x))
+        toast('Cardio atualizado!')
+      } else {
+        const c = await cardioConfigService.create(userId, workout.id, { ...fields, sort_order: cardioConfigs.length })
+        setCardioConfigs(cs => [...cs, c])
+        toast('🏃 Cardio adicionado ao treino!')
+      }
+      setCardioModal(false)
+    } catch(e) { toast('Erro: '+e.message) }
+    finally { setCardioSaving(false) }
+  }
+
+  const removeCardioConfig = async () => {
+    try { await cardioConfigService.delete(delCardio.id); setCardioConfigs(cs => cs.filter(x => x.id!==delCardio.id)); toast('Cardio removido do treino.') }
+    finally { setDelCardio(null) }
+  }
+
+  const cardioBefore = cardioConfigs.filter(c => c.position === 'antes')
+  const cardioAfter  = cardioConfigs.filter(c => c.position !== 'antes')
 
   const { dragIndex, getHandleProps, getItemProps } = useDragSort(exercises, async (next) => {
     setExercises(next)
@@ -373,6 +446,15 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
       <div style={{ padding:'2px 16px 6px' }}>
         <span style={{ color:'var(--t3)', fontSize:12 }}>{gym.icon} {gym.name}</span>
       </div>
+
+      {cardioBefore.length > 0 && (
+        <div style={{ padding:'0 16px 14px' }}>
+          <p className="label" style={{ marginBottom:8 }}>🏃 Cardio · antes do treino</p>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {cardioBefore.map(c => <CardioConfigCard key={c.id} c={c} onEdit={openEditCardio} onDelete={setDelCardio} />)}
+          </div>
+        </div>
+      )}
 
       {exercises.length === 0
         ? <Empty icon="🏋️" title="Nenhum exercício" description="Adicione exercícios a este treino." action={openNew} actionLabel="+ Exercício" />
@@ -441,7 +523,7 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
                   </button>
                   {/* Registrar — direita, destaque total */}
                   <button onClick={() => onLog(ex)}
-                    style={{ flex:2, padding:'5px 8px', fontSize:11, fontWeight:700, color:'#fff', background:'linear-gradient(90deg,#2563EB,#3B82F6)', border:'none', cursor:'pointer', letterSpacing:'0.02em' }}>
+                    style={{ flex:2, padding:'5px 8px', fontSize:11, fontWeight:700, color:'#fff', background:'linear-gradient(90deg, var(--accentD), var(--accent))', border:'none', cursor:'pointer', letterSpacing:'0.02em' }}>
                     ➕ Registrar
                   </button>
                 </div>
@@ -450,6 +532,22 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
           </div>
         )
       }
+
+      <div style={{ padding:'20px 16px 4px' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:cardioAfter.length ? 10 : 4 }}>
+          <span className="section-title" style={{ padding:0 }}>
+            🏃 Cardio <span style={{ color:'var(--t4)', fontWeight:600, textTransform:'none', letterSpacing:0 }}>(opcional · depois do treino)</span>
+          </span>
+          <button onClick={openNewCardio} style={{ color:'var(--accent)', fontSize:13, fontWeight:700, background:'none', border:'none', cursor:'pointer' }}>+ Adicionar</button>
+        </div>
+        {cardioAfter.length > 0 ? (
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {cardioAfter.map(c => <CardioConfigCard key={c.id} c={c} onEdit={openEditCardio} onDelete={setDelCardio} />)}
+          </div>
+        ) : (
+          <p style={{ fontSize:12.5, color:'var(--t3)' }}>Nenhum cardio configurado para este treino. Se não fizer cardio, pode deixar assim.</p>
+        )}
+      </div>
 
       {modal && (
         <FormSheet title={editing ? 'Editar Exercício' : 'Novo Exercício'} onClose={() => setModal(false)} onSave={save} saveLabel={editing ? 'Salvar alterações' : 'Criar exercício'}>
@@ -468,6 +566,72 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
         </FormSheet>
       )}
       {del && <Confirm message={`Excluir "${del?.name}"?`} onConfirm={remove} onCancel={() => setDel(null)} />}
+
+      {cardioModal && (
+        <FormSheet title={editingCardio ? 'Editar Cardio' : 'Novo Cardio'} onClose={() => setCardioModal(false)} onSave={saveCardioConfig} saving={cardioSaving} saveLabel={editingCardio ? 'Salvar alterações' : 'Adicionar ao treino'}>
+          <div>
+            <p className="label" style={{ marginBottom:8 }}>Modalidade</p>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+              {CARDIO_TYPES.map(t => (
+                <button key={t.key} onClick={() => setCardioForm(f=>({...f,type:t.key}))}
+                  style={{ padding:'8px 12px', borderRadius:99, fontSize:12.5, fontWeight:700, cursor:'pointer',
+                    background: cardioForm.type===t.key ? 'var(--accent)' : 'var(--bg3)',
+                    border:`1.5px solid ${cardioForm.type===t.key ? 'var(--accent)' : 'var(--b1)'}`,
+                    color: cardioForm.type===t.key ? '#fff' : 'var(--t2)' }}>
+                  {t.icon} {t.key}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {cardioForm.type === 'Personalizado' && (
+            <input className="inp" placeholder="Nome do cardio" value={cardioForm.customType} onChange={e => setCardioForm(f=>({...f,customType:e.target.value}))} autoFocus />
+          )}
+
+          <div>
+            <p className="label" style={{ marginBottom:8 }}>Posição no treino</p>
+            <div style={{ display:'flex', gap:8 }}>
+              {[{ key:'antes', label:'Antes do treino' }, { key:'depois', label:'Depois do treino' }].map(p => (
+                <button key={p.key} onClick={() => setCardioForm(f=>({...f,position:p.key}))}
+                  style={{ flex:1, padding:'10px', borderRadius:'var(--rsm)', fontSize:12.5, fontWeight:700, cursor:'pointer',
+                    background: cardioForm.position===p.key ? 'var(--accent)' : 'var(--bg3)',
+                    border:`1.5px solid ${cardioForm.position===p.key ? 'var(--accent)' : 'var(--b1)'}`,
+                    color: cardioForm.position===p.key ? '#fff' : 'var(--t2)' }}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display:'flex', gap:10 }}>
+            <div style={{ flex:1 }}>
+              <p className="label" style={{ marginBottom:8 }}>Tempo (min)</p>
+              <input className="inp" type="number" inputMode="numeric" placeholder="30" value={cardioForm.duration_min} onChange={e => setCardioForm(f=>({...f,duration_min:e.target.value}))} />
+            </div>
+            <div style={{ flex:1 }}>
+              <p className="label" style={{ marginBottom:8 }}>Intensidade</p>
+              <input className="inp" placeholder="Ex: Velocidade 6" value={cardioForm.intensity} onChange={e => setCardioForm(f=>({...f,intensity:e.target.value}))} />
+            </div>
+          </div>
+
+          <div style={{ display:'flex', gap:10 }}>
+            <div style={{ flex:1 }}>
+              <p className="label" style={{ marginBottom:8 }}>Distância (km)</p>
+              <input className="inp" type="number" inputMode="decimal" placeholder="opcional" value={cardioForm.distance_km} onChange={e => setCardioForm(f=>({...f,distance_km:e.target.value}))} />
+            </div>
+            <div style={{ flex:1 }}>
+              <p className="label" style={{ marginBottom:8 }}>Calorias</p>
+              <input className="inp" type="number" inputMode="numeric" placeholder="opcional" value={cardioForm.calories} onChange={e => setCardioForm(f=>({...f,calories:e.target.value}))} />
+            </div>
+          </div>
+
+          <div>
+            <p className="label" style={{ marginBottom:8 }}>Observações</p>
+            <textarea className="inp" rows={2} placeholder="opcional" value={cardioForm.notes} onChange={e => setCardioForm(f=>({...f,notes:e.target.value}))} style={{ resize:'none' }} />
+          </div>
+        </FormSheet>
+      )}
+      {delCardio && <Confirm message={`Remover o cardio "${delCardio.type}" deste treino? O histórico de registros dele também será apagado.`} onConfirm={removeCardioConfig} onCancel={() => setDelCardio(null)} />}
     </div>
   )
 }
@@ -483,13 +647,10 @@ function LogSession({ ex, gym, workout, onBack, onDone }) {
   const [date,    setDate]    = useState(new Date().toISOString().split('T')[0])
   const [saving,      setSaving]      = useState(false)
   const [loading,     setLoading]     = useState(true)
-  const [cardios,     setCardios]     = useState([])
-  const [lastCardios, setLastCardios] = useState([])
-  const [showCardio,  setShowCardio]  = useState(false)
-  const [cardioForm,  setCardioForm]  = useState({ type:'Esteira', duration:'', intensity:'', distance:'', calories:'', notes:'' })
-  const [cardioSaving,setCardioSaving]= useState(false)
+  const [cardioItems, setCardioItems] = useState([])
 
   useEffect(() => { loadHistory() }, [ex?.id])
+  useEffect(() => { loadCardio() }, [workout?.id, date])
 
   const loadHistory = async () => {
     try {
@@ -502,37 +663,37 @@ function LogSession({ ex, gym, workout, onBack, onDone }) {
       } else {
         setSets(Array.from({ length: ex.valid_sets||3 }, () => ({ weight:'', reps:'' })))
       }
-      // Load cardio
-      if (workout?.id) {
-        const todayDate = new Date().toISOString().split('T')[0]
-        const [todayC, prevC] = await Promise.all([
-          cardioService.listByWorkoutAndDate(workout.id, todayDate),
-          cardioService.getLastByWorkout(workout.id, todayDate),
-        ])
-        setCardios(todayC)
-        setLastCardios(prevC)
-      }
     } finally { setLoading(false) }
   }
 
-  const CARDIO_TYPES = ['Esteira','Escada','Bicicleta','Elíptico','Caminhada','Corrida','Personalizado']
-
-  const saveCardio = async () => {
-    if (!cardioForm.duration) { toast('Informe a duração.'); return }
-    setCardioSaving(true)
+  // Cardio — referência(s) do treino, pré-preenchidas e editáveis para esta data
+  const loadCardio = async () => {
+    if (!workout?.id) { setCardioItems([]); return }
     try {
-      const todayDate = date
-      const created = await cardioService.create(userId, workout.id, todayDate, cardioForm)
-      setCardios(p => [...p, created])
-      setCardioForm({ type:'Esteira', duration:'', intensity:'', distance:'', calories:'', notes:'' })
-      setShowCardio(false)
-      toast('🏃 Cardio salvo!')
-    } catch(e) { toast('Erro: '+e.message) } finally { setCardioSaving(false) }
+      const configs = await cardioService.listByWorkoutDate(workout.id, date)
+      const items = await Promise.all(configs.map(async c => {
+        const last = c.today ? null : await cardioService.getLast(c.id, date)
+        return {
+          configId: c.id,
+          type: c.today?.type || c.type,
+          duration_min: c.today?.duration_min != null ? String(c.today.duration_min) : (c.duration_min != null ? String(c.duration_min) : ''),
+          intensity: c.today?.intensity ?? c.intensity ?? '',
+          distance_km: c.today?.distance_km != null ? String(c.today.distance_km) : (c.distance_km != null ? String(c.distance_km) : ''),
+          calories: c.today?.calories != null ? String(c.today.calories) : (c.calories != null ? String(c.calories) : ''),
+          notes: c.today?.notes ?? c.notes ?? '',
+          skip: false,
+          todayLogId: c.today?.id || null,
+          last,
+        }
+      }))
+      setCardioItems(items)
+    } catch(e) { /* silencioso — cardio é opcional */ }
   }
 
-  const deleteCardio = async (id) => {
-    try { await cardioService.delete(id); setCardios(p => p.filter(c => c.id !== id)) } catch(e) { toast('Erro: '+e.message) }
-  }
+  const updateCardio = (configId, field, value) =>
+    setCardioItems(p => p.map(it => it.configId===configId ? { ...it, [field]:value } : it))
+  const toggleSkipCardio = (configId) =>
+    setCardioItems(p => p.map(it => it.configId===configId ? { ...it, skip: !it.skip } : it))
 
   const prWeight = logs.reduce((m, l) => Math.max(m, ...(l.sets||[]).map(s => parseFloat(s.weight)||0)), 0)
   const lastSession = logs[0]
@@ -547,6 +708,15 @@ function LogSession({ ex, gym, workout, onBack, onDone }) {
       await logService.replaceSets(log.id, userId, filled.map(s => ({
         ...s, is_pr: (parseFloat(s.weight)||0) > prWeight && prWeight > 0
       })))
+      // Cardio — salva junto com o treino (referência editada para esta data)
+      for (const it of cardioItems) {
+        if (it.skip) {
+          if (it.todayLogId) await cardioService.delete(it.todayLogId)
+          continue
+        }
+        if (!it.duration_min && !it.intensity) continue
+        await cardioService.upsert(userId, it.configId, date, it)
+      }
       toast('✅ Treino registrado!')
       onDone()
     } catch(e) { toast('Erro: '+e.message) }
@@ -619,98 +789,61 @@ function LogSession({ ex, gym, workout, onBack, onDone }) {
           value={obs} onChange={e => setObs(e.target.value)} style={{ resize:'none' }} />
       </div>
 
-      {/* ── CARDIO SECTION ─────────────────────────────── */}
-      <div style={{ margin:'0 16px 16px' }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-          <p className="label" style={{ margin:0 }}>🏃 Cardio <span style={{ color:'var(--t4)', fontWeight:400, fontSize:10 }}>opcional</span></p>
-          <button onClick={() => setShowCardio(s => !s)}
-            style={{ padding:'5px 12px', borderRadius:99, fontSize:11, fontWeight:700, cursor:'pointer', border:'1px solid var(--accent)', background: showCardio ? 'var(--accent)' : 'var(--accent10)', color: showCardio ? '#fff' : 'var(--accent)' }}>
-            {showCardio ? '✕ Fechar' : '+ Adicionar'}
-          </button>
+      {/* ── CARDIO — referência(s) do treino, editável para o dia ───── */}
+      {cardioItems.length > 0 && (
+        <div style={{ margin:'0 16px 16px' }}>
+          <p className="label" style={{ marginBottom:10 }}>🏃 Cardio <span style={{ color:'var(--t4)', fontWeight:400, fontSize:10 }}>referência do treino</span></p>
+
+          {cardioItems.map(it => (
+            <div key={it.configId} style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--r)', padding:'12px', marginBottom:10, opacity: it.skip ? 0.55 : 1, transition:'opacity 0.2s' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: it.skip ? 0 : 8 }}>
+                <span style={{ fontWeight:700, fontSize:13, color:'var(--t1)' }}>{cardioIcon(it.type)} {it.type}</span>
+                <button onClick={() => toggleSkipCardio(it.configId)}
+                  style={{ fontSize:11, fontWeight:700, color: it.skip ? 'var(--t3)' : 'var(--red)', background:'none', border:'none', cursor:'pointer' }}>
+                  {it.skip ? '↺ Fazer hoje' : '✕ Não fiz hoje'}
+                </button>
+              </div>
+
+              {!it.skip && (
+                <>
+                  {it.last && (
+                    <p style={{ fontSize:11, color:'var(--t3)', marginBottom:8 }}>
+                      Último registrado: {it.last.duration_min ? `${it.last.duration_min} min` : ''}{it.last.intensity ? ` · ${it.last.intensity}` : ''} ({dateLabel(it.last.log_date)})
+                    </p>
+                  )}
+                  <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:8 }}>
+                    {CARDIO_TYPES.map(t => (
+                      <button key={t.key} onClick={() => updateCardio(it.configId, 'type', t.key)}
+                        style={{ padding:'4px 9px', borderRadius:99, fontSize:10.5, fontWeight:700, cursor:'pointer',
+                          background: it.type===t.key ? 'var(--accent)' : 'var(--bg3)',
+                          border:`1px solid ${it.type===t.key ? 'var(--accent)' : 'var(--b1)'}`,
+                          color: it.type===t.key ? '#fff' : 'var(--t3)' }}>
+                        {t.icon} {t.key}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display:'flex', gap:8, marginBottom:8 }}>
+                    <div style={{ position:'relative', flex:1 }}>
+                      <input className="inp" type="number" inputMode="numeric" placeholder="Tempo"
+                        value={it.duration_min} onChange={e => updateCardio(it.configId,'duration_min', e.target.value)} style={{ paddingRight:30 }} />
+                      <span style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)', fontSize:11, color:'var(--t3)' }}>min</span>
+                    </div>
+                    <input className="inp" placeholder="Intensidade (ex: Velocidade 6)"
+                      value={it.intensity} onChange={e => updateCardio(it.configId,'intensity', e.target.value)} style={{ flex:1.4 }} />
+                  </div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <input className="inp" type="number" inputMode="decimal" placeholder="Distância (km, opcional)"
+                      value={it.distance_km} onChange={e => updateCardio(it.configId,'distance_km', e.target.value)} style={{ flex:1 }} />
+                    <input className="inp" type="number" inputMode="numeric" placeholder="Calorias (opcional)"
+                      value={it.calories} onChange={e => updateCardio(it.configId,'calories', e.target.value)} style={{ flex:1 }} />
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+          <p style={{ fontSize:10.5, color:'var(--t4)' }}>O cardio é salvo automaticamente junto com o treino. Para adicionar ou remover uma referência de cardio, use a aba do treino.</p>
         </div>
-
-        {lastCardios.length > 0 && cardios.length === 0 && !showCardio && (
-          <div style={{ padding:'10px 12px', background:'var(--bg3)', borderRadius:'var(--r)', border:'1px solid var(--b1)', marginBottom:10 }}>
-            <div style={{ fontSize:10, fontWeight:700, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Último cardio</div>
-            {lastCardios.slice(0,2).map((c,i) => (
-              <div key={i} style={{ display:'flex', gap:8, flexWrap:'wrap', fontSize:12, color:'var(--t2)', marginBottom:i<lastCardios.length-1?4:0 }}>
-                <span style={{ fontWeight:700, color:'var(--t1)' }}>{c.type}</span>
-                <span>{c.duration} min</span>
-                {c.intensity && <span>· {c.intensity}</span>}
-                {c.distance  && <span>· {c.distance}km</span>}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {cardios.map(c => (
-          <div key={c.id} style={{ display:'flex', alignItems:'flex-start', gap:8, padding:'10px 12px', background:'var(--bg3)', borderRadius:'var(--r)', border:'1px solid var(--b1)', marginBottom:7 }}>
-            <div style={{ flex:1 }}>
-              <div style={{ display:'flex', gap:8, flexWrap:'wrap', fontSize:12, color:'var(--t1)', fontWeight:700, marginBottom:4 }}>
-                {c.type}
-                <span style={{ color:'var(--accent)', fontWeight:800 }}>{c.duration} min</span>
-                {c.intensity && <span style={{ color:'var(--t2)', fontWeight:400 }}>· {c.intensity}</span>}
-              </div>
-              <div style={{ display:'flex', gap:10, flexWrap:'wrap', fontSize:11, color:'var(--t3)' }}>
-                {c.distance && <span>📍 {c.distance}km</span>}
-                {c.calories && <span>🔥 {c.calories}kcal</span>}
-                {c.notes    && <span style={{ fontStyle:'italic' }}>"{c.notes}"</span>}
-              </div>
-            </div>
-            <button onClick={() => deleteCardio(c.id)}
-              style={{ color:'var(--red)', fontSize:15, background:'none', border:'none', cursor:'pointer', flexShrink:0, padding:'2px' }}>🗑️</button>
-          </div>
-        ))}
-
-        {showCardio && (
-          <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--r)', padding:'14px', display:'flex', flexDirection:'column', gap:10 }}>
-            <div>
-              <p className="label" style={{ marginBottom:6 }}>Tipo</p>
-              <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-                {CARDIO_TYPES.map(t => (
-                  <button key={t} onClick={() => setCardioForm(f => ({...f, type:t}))}
-                    style={{ padding:'6px 12px', borderRadius:99, fontSize:11, fontWeight:700, cursor:'pointer',
-                      background: cardioForm.type===t ? 'var(--accent)' : 'var(--bg3)',
-                      color: cardioForm.type===t ? '#fff' : 'var(--t2)',
-                      border:`1px solid ${cardioForm.type===t ? 'var(--accent)' : 'var(--b1)'}` }}>
-                    {t}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-              <div>
-                <label className="label" style={{ display:'block', marginBottom:5 }}>Duração (min) *</label>
-                <input className="inp" type="number" inputMode="numeric" placeholder="30"
-                  value={cardioForm.duration} onChange={e => setCardioForm(f=>({...f,duration:e.target.value}))} />
-              </div>
-              <div>
-                <label className="label" style={{ display:'block', marginBottom:5 }}>Intensidade</label>
-                <input className="inp" type="text" placeholder="Velocidade 6"
-                  value={cardioForm.intensity} onChange={e => setCardioForm(f=>({...f,intensity:e.target.value}))} />
-              </div>
-              <div>
-                <label className="label" style={{ display:'block', marginBottom:5 }}>Distância (km)</label>
-                <input className="inp" type="number" inputMode="decimal" placeholder="3.2"
-                  value={cardioForm.distance} onChange={e => setCardioForm(f=>({...f,distance:e.target.value}))} />
-              </div>
-              <div>
-                <label className="label" style={{ display:'block', marginBottom:5 }}>Calorias</label>
-                <input className="inp" type="number" inputMode="numeric" placeholder="320"
-                  value={cardioForm.calories} onChange={e => setCardioForm(f=>({...f,calories:e.target.value}))} />
-              </div>
-            </div>
-            <div>
-              <label className="label" style={{ display:'block', marginBottom:5 }}>Observações</label>
-              <input className="inp" type="text" placeholder="Ex: ritmo moderado..."
-                value={cardioForm.notes} onChange={e => setCardioForm(f=>({...f,notes:e.target.value}))} />
-            </div>
-            <button className="btn btn-primary btn-full" onClick={saveCardio} disabled={cardioSaving}>
-              {cardioSaving ? '⏳ Salvando...' : '✅ Salvar Cardio'}
-            </button>
-          </div>
-        )}
-      </div>
+      )}
 
       <div style={{ padding:'0 16px 16px' }}>
         <button className="btn btn-primary btn-full" onClick={save} disabled={saving} style={{ fontSize:16, padding:15 }}>

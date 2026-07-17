@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useApp } from '../hooks/useAppContext'
 import { gymService, workoutService, exerciseService, logService } from '../services/workouts'
+import { cardioConfigService, cardioIcon } from '../services/cardio'
 import { profileService } from '../services/profile'
 import { dietGoalsService, mealService, mealPlanService } from '../services/diet'
 import { todayISO, dateLabel, sumMacros, pickTodaysWorkout } from '../utils/helpers'
@@ -25,6 +26,7 @@ export default function DashboardScreen({ setTab }) {
   const [workouts,     setWorkouts]      = useState([])
   const [selectedWk,   setSelectedWk]   = useState(null)
   const [exercises,    setExercises]     = useState([])
+  const [cardioConfigs, setCardioConfigs] = useState([])
   const [todayLogs,    setTodayLogs]     = useState([])
   const [recentPRs,    setRecentPRs]     = useState([])
   const [dietTotals,   setDietTotals]    = useState({ cal:0, prot:0, carb:0, fat:0 })
@@ -79,12 +81,14 @@ export default function DashboardScreen({ setTab }) {
   }
 
   const loadExercises = async (wk) => {
-    const [exs, logs] = await Promise.all([
+    const [exs, logs, cfgs] = await Promise.all([
       exerciseService.listByWorkout(wk.id),
       logService.listByDate(userId, todayISO()),
+      cardioConfigService.listByWorkout(wk.id),
     ])
     setExercises(exs)
     setTodayLogs(logs)
+    setCardioConfigs(cfgs)
 
     // Build recent PRs across all exercises
     const prs = []
@@ -107,6 +111,7 @@ export default function DashboardScreen({ setTab }) {
     setSelectedWk(null)
     setExercises([])
     setTodayLogs([])
+    setCardioConfigs([])
     const ws = await workoutService.listByGym(gym.id)
     setWorkouts(ws)
     const wk = pickTodaysWorkout(ws)
@@ -204,6 +209,8 @@ export default function DashboardScreen({ setTab }) {
           onSelectWorkout={selectWorkout}
           onStart={() => { if (selectedGym && selectedWk) { setWorkoutIntent(selectedGym, selectedWk); setTab('workouts') } }}
           setTab={setTab}
+          accentColor={accentColor}
+          cardioConfigs={cardioConfigs}
         />
       </div>
 
@@ -261,7 +268,7 @@ export default function DashboardScreen({ setTab }) {
 }
 
 // ── WORKOUT CARD ──────────────────────────────────────────────
-function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGym, workouts, onSelectWorkout, onStart, setTab, accentColor = '#3B82F6' }) {
+function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGym, workouts, onSelectWorkout, onStart, setTab, accentColor = '#3B82F6', cardioConfigs = [] }) {
   const muscleGroups = wk?.display_name?.split(/[+·,]/).map(s => s.trim()).filter(Boolean) || []
   const [switching, setSwitching] = useState(false)
 
@@ -340,6 +347,17 @@ function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGy
               {gym && <span>📍 {gym.name}</span>}
             </div>
 
+            {/* Resumo do cardio configurado para este treino */}
+            {cardioConfigs.length > 0 && (
+              <div style={{ display:'flex', flexDirection:'column', gap:3, marginBottom:10 }}>
+                {cardioConfigs.slice(0,2).map(c => (
+                  <span key={c.id} style={{ fontSize:12, color:'rgba(255,255,255,0.6)' }}>
+                    {cardioIcon(c.type)} {c.type}{c.duration_min ? ` · ${c.duration_min} min` : ''} <span style={{ color:'rgba(255,255,255,0.4)' }}>({c.position === 'antes' ? 'antes do treino' : 'após o treino'})</span>
+                  </span>
+                ))}
+              </div>
+            )}
+
             {/* Muscle group chips */}
             {muscleGroups.length > 0 && (
               <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:12 }}>
@@ -390,7 +408,7 @@ function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGy
               <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                 {gyms.map(g => (
                   <button key={g.id} onClick={() => onSelectGym(g)}
-                    style={{ padding:'8px 14px', borderRadius:'var(--r)', background:'rgba(59,130,246,0.15)', border:'1px solid rgba(59,130,246,0.3)', color:'#93C5FD', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+                    style={{ padding:'8px 14px', borderRadius:'var(--r)', background:`color-mix(in srgb, ${accentColor} 15%, transparent)`, border:`1px solid color-mix(in srgb, ${accentColor} 30%, transparent)`, color:`color-mix(in srgb, ${accentColor} 80%, white)`, fontSize:13, fontWeight:700, cursor:'pointer', transition:'background 0.25s, border-color 0.25s, color 0.25s' }}>
                     {g.icon} {g.name}
                   </button>
                 ))}
@@ -400,7 +418,7 @@ function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGy
               <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                 {workouts.map(w => (
                   <button key={w.id} onClick={() => onSelectWorkout(w)}
-                    style={{ padding:'8px 14px', borderRadius:'var(--r)', background:`${w.color||'#3B82F6'}22`, border:`1px solid ${w.color||'#3B82F6'}44`, color:w.color||'#60A5FA', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+                    style={{ padding:'8px 14px', borderRadius:'var(--r)', background:`${w.color||accentColor}22`, border:`1px solid ${w.color||accentColor}44`, color:w.color||`color-mix(in srgb, ${accentColor} 80%, white)`, fontSize:13, fontWeight:700, cursor:'pointer' }}>
                     {w.name}
                   </button>
                 ))}
@@ -408,7 +426,7 @@ function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGy
             )}
             {gyms.length === 0 && (
               <button onClick={() => setTab('workouts')}
-                style={{ padding:'9px 16px', borderRadius:'var(--r)', background:'rgba(59,130,246,0.15)', border:'1px solid rgba(59,130,246,0.3)', color:'#93C5FD', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+                style={{ padding:'9px 16px', borderRadius:'var(--r)', background:`color-mix(in srgb, ${accentColor} 15%, transparent)`, border:`1px solid color-mix(in srgb, ${accentColor} 30%, transparent)`, color:`color-mix(in srgb, ${accentColor} 80%, white)`, fontSize:13, fontWeight:700, cursor:'pointer', transition:'background 0.25s, border-color 0.25s, color 0.25s' }}>
                 + Criar academia
               </button>
             )}
