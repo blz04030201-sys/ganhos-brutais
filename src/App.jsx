@@ -27,23 +27,6 @@ function useKeyboardSafeArea() {
   }, [])
 }
 
-/* ── Auto-scroll focused input into view inside any modal ───── */
-function useModalInputScroll() {
-  useEffect(() => {
-    const handleFocus = (e) => {
-      const el = e.target
-      if (!['INPUT','TEXTAREA','SELECT'].includes(el.tagName)) return
-      // Only scroll inside a modal/sheet
-      if (!el.closest('.modal-sheet')) return
-      setTimeout(() => {
-        el.scrollIntoView({ block: 'center', behavior: 'smooth' })
-      }, 120)
-    }
-    document.addEventListener('focusin', handleFocus, true)
-    return () => document.removeEventListener('focusin', handleFocus, true)
-  }, [])
-}
-
 /* ── Splash ─────────────────────────────────────────────────── */
 function Splash() {
   return (
@@ -71,7 +54,6 @@ function AppInner() {
   const { user, loading } = useApp()
   const [tab, setTab] = useState('dashboard')
   useKeyboardSafeArea()
-  useModalInputScroll()
 
   if (loading) return <Splash />
   if (!user) return <AuthScreen />
@@ -85,7 +67,7 @@ function AppInner() {
 
   return (
     <>
-      <Screen setTab={setTab} tab={tab} />
+      <Screen setTab={setTab} />
       <BottomNav tab={tab} setTab={setTab} />
       <Toast />
     </>

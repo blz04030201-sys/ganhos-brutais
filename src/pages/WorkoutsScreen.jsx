@@ -132,7 +132,7 @@ function GymList({ onSelect }) {
                 className={dragIndex === i ? 'drag-ghost' : ''}
                 style={{ background:'var(--card)', border:`1px solid ${(g.color||'var(--accent)')}33`, borderLeft:`4px solid ${g.color||'var(--accent)'}`, borderRadius:'var(--r)', padding:'14px 16px', display:'flex', alignItems:'center', gap:12, cursor:'pointer', userSelect:'none' }}
               >
-                <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:18, color:'var(--t3)', padding:'12px 10px' }}>☰</span>
+                <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:18, color:'var(--t3)', padding:'8px 4px' }}>☰</span>
                 <span style={{ fontSize:22, width:34, height:34, borderRadius:10, background:`${(g.color||'var(--accent)')}1f`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{g.icon}</span>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontWeight:700, fontSize:15, color:'var(--t1)' }}>{g.name}</div>
@@ -275,7 +275,7 @@ function WorkoutList({ gym, onBack, onSelect }) {
                 className={dragIndex === i ? 'drag-ghost' : ''}
                 style={{ background:'var(--card)', borderLeft:`4px solid ${w.color||'var(--accent)'}`, border:`1px solid ${w.color||'var(--accent)'}22`, borderLeftWidth:4, borderLeftColor:w.color||'var(--accent)', borderRadius:'var(--r)', padding:'14px 16px', display:'flex', alignItems:'center', gap:12, cursor:'pointer', userSelect:'none' }}
               >
-                <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:18, color:'var(--t3)', padding:'12px 10px' }}>☰</span>
+                <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:18, color:'var(--t3)', padding:'8px 4px' }}>☰</span>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontWeight:800, fontSize:17, color:'var(--t1)', letterSpacing:'-0.01em' }}>{w.name}</div>
                   {w.display_name && w.display_name !== w.name && (

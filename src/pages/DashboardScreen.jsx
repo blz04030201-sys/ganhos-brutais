@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useApp } from '../hooks/useAppContext'
 import { gymService, workoutService, exerciseService, logService } from '../services/workouts'
 import { cardioConfigService, cardioIcon } from '../services/cardio'
@@ -18,7 +18,7 @@ const DAY_STR = () => {
 const HOUR = new Date().getHours()
 const GREETING = HOUR < 12 ? 'Bom dia,' : HOUR < 18 ? 'Boa tarde,' : 'Boa noite,'
 
-export default function DashboardScreen({ setTab, tab }) {
+export default function DashboardScreen({ setTab }) {
   const { userId, profile, toast, accentColor } = useApp()
 
   const [gyms,         setGyms]         = useState([])
@@ -44,18 +44,6 @@ export default function DashboardScreen({ setTab, tab }) {
 
   useEffect(() => { if (userId) init() }, [userId])
 
-  // Refresh diet totals whenever the user navigates back to the dashboard tab
-  const planIdRef = useRef(null)
-  useEffect(() => {
-    if (tab !== 'dashboard' || !userId) return
-    // Only refresh after the first load (planIdRef is set after init)
-    if (!planIdRef.current) return
-    mealService.listByPlan(planIdRef.current).then(meals => {
-      setDietTotals(sumMacros(meals.flatMap(m => m.items || [])))
-      setDietMeals(meals)
-    }).catch(() => {})
-  }, [tab])
-
   const init = async () => {
     setLoading(true)
     try {
@@ -68,7 +56,6 @@ export default function DashboardScreen({ setTab, tab }) {
       setDietGoals(dg)
 
       if (plan) {
-        planIdRef.current = plan.id
         const meals = await mealService.listByPlan(plan.id)
         setDietTotals(sumMacros(meals.flatMap(m => m.items || [])))
         setDietMeals(meals)

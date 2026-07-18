@@ -656,7 +656,7 @@ function SwapDishPicker({ userId, mealName, customFoods, currentName, onClose, o
 
   const groupKey    = mealGroupKey(mealName)
   const presets     = allPresets.filter(p => !p.meal_group || p.meal_group === groupKey)
-  const suggestions = mealPresetSuggestions(groupKey)
+  const suggestions = presets.length === 0 ? mealPresetSuggestions(groupKey) : []
 
   const load = async () => {
     try { setAllPresets(await presetService.list(userId)) }
@@ -1009,8 +1009,6 @@ function FoodPicker({ userId, customFoods = [], onFoodCreated, onClose, onAdd })
 
   const results = searchFoods(query, customFoods)
   const units   = picked ? getFoodUnits(picked, customFoods) : ['g','ml','unid']
-  const searchRef = useRef(null)
-  useEffect(() => { const t = setTimeout(() => searchRef.current?.focus(), 150); return () => clearTimeout(t) }, [])
 
   const selectFood = name => {
     const fd=findFood(name, customFoods)
@@ -1083,7 +1081,7 @@ function FoodPicker({ userId, customFoods = [], onFoodCreated, onClose, onAdd })
   return (
     <FormSheet title="Adicionar Alimento" onClose={onClose} onSave={confirm} saveDisabled={!picked} saveLabel="Adicionar">
       <input className="inp" placeholder="Buscar alimento..." value={query}
-        onChange={e => { setQuery(e.target.value); setPicked(null) }} ref={searchRef} />
+        onChange={e => { setQuery(e.target.value); setPicked(null) }} autoFocus />
       {!picked && query.length >= 1 && (
         <div style={{ maxHeight:200, overflowY:'auto', border:'1px solid var(--b1)', borderRadius:'var(--r)' }}>
           {results.length === 0
@@ -1157,7 +1155,7 @@ function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse, meal
     finally { setDel(null) }
   }
 
-  const suggestions = mealPresetSuggestions(groupKey)
+  const suggestions = presets.length === 0 ? mealPresetSuggestions(groupKey) : []
 
   if (editing) {
     return (
@@ -1190,7 +1188,7 @@ function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse, meal
                 return (
                   <div key={p.id} {...getItemProps(i)} className={dragIndex===i ? 'drag-ghost' : ''}
                     style={{ background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:'var(--r)', display:'flex', alignItems:'center', gap:8, padding:'10px 10px 10px 6px' }}>
-                    <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:16, color:'var(--t3)', padding:'12px 10px' }}>⠿</span>
+                    <span {...getHandleProps(i)} style={{ ...getHandleProps(i).style, fontSize:16, color:'var(--t3)', padding:'8px 4px' }}>⠿</span>
                     <button onClick={() => onUse(p)} style={{ flex:1, display:'flex', alignItems:'center', gap:10, background:'none', border:'none', textAlign:'left', cursor:'pointer', padding:0, minWidth:0 }}>
                       <span style={{ fontSize:20, flexShrink:0 }}>{p.icon}</span>
                       <div style={{ minWidth:0 }}>
