@@ -12,11 +12,26 @@ export function Toast() {
 // Sticky header + scrollable body + sticky footer with Cancel/Save, so the
 // Save button is ALWAYS reachable, even with the keyboard open.
 export function FormSheet({ title, onClose, onSave, saving, saveLabel = 'Salvar', saveDisabled, danger, children }) {
+  const bodyRef = useRef(null)
+
   useEffect(() => {
     const handler = e => { if (e.key === 'Escape') onClose?.() }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
+
+  // Focus the first field only after the sheet has finished sliding up, so the
+  // keyboard doesn't fight the entrance animation — then make sure it's
+  // actually scrolled into view above the keyboard.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const el = bodyRef.current?.querySelector('[data-autofocus]')
+      if (!el) return
+      el.focus({ preventScroll: true })
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }, 280)
+    return () => clearTimeout(t)
+  }, [])
 
   return (
     <div className="modal-overlay" onPointerDown={e => { if (e.target === e.currentTarget) onClose?.() }}>
@@ -26,7 +41,12 @@ export function FormSheet({ title, onClose, onSave, saving, saveLabel = 'Salvar'
           <span className="title-md">{title}</span>
           <button onClick={onClose} style={{ color:'var(--t3)', fontSize:22, lineHeight:1, minWidth:36, minHeight:36, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
         </div>
-        <div className="form-sheet-body">
+        <div className="form-sheet-body" ref={bodyRef} onFocusCapture={e => {
+          // Whenever any field gets focus (including manual taps), keep it
+          // clear of the keyboard once it finishes opening.
+          const el = e.target
+          setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300)
+        }}>
           {children}
         </div>
         <div className="form-sheet-footer">

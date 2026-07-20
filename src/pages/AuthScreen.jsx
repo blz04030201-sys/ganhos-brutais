@@ -56,6 +56,8 @@ export default function AuthScreen() {
       alignItems: 'center',
       justifyContent: 'center',
       padding: '32px 24px',
+      paddingTop: 'calc(32px + var(--safe-top, 0px))',
+      paddingBottom: 'calc(24px + var(--keyboard-offset, 0px))',
       background: 'var(--bg)',
       overflowY: 'auto',
     }}>

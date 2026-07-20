@@ -656,7 +656,7 @@ function SwapDishPicker({ userId, mealName, customFoods, currentName, onClose, o
 
   const groupKey    = mealGroupKey(mealName)
   const presets     = allPresets.filter(p => !p.meal_group || p.meal_group === groupKey)
-  const suggestions = presets.length === 0 ? mealPresetSuggestions(groupKey) : []
+  const suggestions = mealPresetSuggestions(groupKey)
 
   const load = async () => {
     try { setAllPresets(await presetService.list(userId)) }
@@ -755,7 +755,7 @@ function SwapDishPicker({ userId, mealName, customFoods, currentName, onClose, o
                   </div>
                   {!isCurrent && <span style={{ color:'var(--accent)', fontSize:18, flexShrink:0, fontWeight:300 }}>›</span>}
                 </button>
-                <button onClick={() => setDel(p)}
+                <button onClick={() => setDel(p)} className="tap-target-44"
                   style={{ flexShrink:0, padding:'10px 12px', background:'none', border:'none', borderLeft:'1px solid var(--b2)', color:'var(--red)', fontSize:15, cursor:'pointer' }}>
                   🗑️
                 </button>
@@ -983,10 +983,10 @@ function FoodItemRow({ item, customFoods = [], onChange, onRemove, handleProps, 
         <div style={{ fontSize:10, color:'var(--t3)', marginTop:1 }}>{Math.round(item.calories||0)} kcal · {Math.round(item.protein||0)}g P</div>
       </div>
       <input type="number" value={item.amount} onChange={e => handle(e.target.value, item.unit)}
-        style={{ width:60, background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t1)', padding:'7px', fontSize:13, textAlign:'center' }}
+        style={{ width:60, background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t1)', padding:'7px', fontSize:16, textAlign:'center' }}
         inputMode="decimal" />
       <select value={item.unit} onChange={e => handle(item.amount, e.target.value)}
-        style={{ background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t2)', padding:'7px 5px', fontSize:12 }}>
+        style={{ background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t2)', padding:'7px 5px', fontSize:16 }}>
         {units.map(u => <option key={u} value={u}>{u}</option>)}
       </select>
       <button onClick={onRemove} style={{ color:'var(--red)', fontSize:16, flexShrink:0, background:'none', border:'none', cursor:'pointer', padding:'4px 6px' }}>✕</button>
@@ -1049,7 +1049,7 @@ function FoodPicker({ userId, customFoods = [], onFoodCreated, onClose, onAdd })
     return (
       <FormSheet title="Novo Alimento" onClose={() => setCreating(false)} onSave={saveNewFood} saving={saving} saveLabel="✅ Criar e usar">
         <input className="inp" placeholder="Nome do alimento" value={newFood.name}
-          onChange={e => setNewFood(f => ({ ...f, name:e.target.value }))} autoFocus />
+          onChange={e => setNewFood(f => ({ ...f, name:e.target.value }))} data-autofocus />
         <div>
           <p className="label" style={{ marginBottom:8 }}>Unidade padrão</p>
           <div style={{ display:'flex', gap:8 }}>
@@ -1081,7 +1081,7 @@ function FoodPicker({ userId, customFoods = [], onFoodCreated, onClose, onAdd })
   return (
     <FormSheet title="Adicionar Alimento" onClose={onClose} onSave={confirm} saveDisabled={!picked} saveLabel="Adicionar">
       <input className="inp" placeholder="Buscar alimento..." value={query}
-        onChange={e => { setQuery(e.target.value); setPicked(null) }} autoFocus />
+        onChange={e => { setQuery(e.target.value); setPicked(null) }} data-autofocus />
       {!picked && query.length >= 1 && (
         <div style={{ maxHeight:200, overflowY:'auto', border:'1px solid var(--b1)', borderRadius:'var(--r)' }}>
           {results.length === 0
@@ -1106,7 +1106,7 @@ function FoodPicker({ userId, customFoods = [], onFoodCreated, onClose, onAdd })
         <div style={{ display:'flex', gap:10 }}>
           <input type="number" className="inp" value={amount} onChange={e => setAmount(e.target.value)} style={{ flex:1 }} inputMode="decimal" />
           <select value={unit} onChange={e => setUnit(e.target.value)}
-            style={{ background:'var(--bg3)', border:'1.5px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t1)', padding:'11px 10px', fontSize:14 }}>
+            style={{ background:'var(--bg3)', border:'1.5px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t1)', padding:'11px 10px', fontSize:16 }}>
             {units.map(u => <option key={u} value={u}>{u}</option>)}
           </select>
         </div>
@@ -1155,7 +1155,7 @@ function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse, meal
     finally { setDel(null) }
   }
 
-  const suggestions = presets.length === 0 ? mealPresetSuggestions(groupKey) : []
+  const suggestions = mealPresetSuggestions(groupKey)
 
   if (editing) {
     return (
@@ -1196,9 +1196,9 @@ function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse, meal
                         <div style={{ fontSize:11, color:'var(--t3)' }}>{Math.round(m.cal)} kcal · {(p.foods||[]).length} itens</div>
                       </div>
                     </button>
-                    <button onClick={e => { e.stopPropagation(); setEditing(p) }} style={{ color:'var(--t2)', fontSize:16, padding:7, background:'none', border:'none', cursor:'pointer', flexShrink:0 }}>✏️</button>
-                    <button onClick={e => duplicate(p, e)} style={{ color:'var(--t2)', fontSize:16, padding:7, background:'none', border:'none', cursor:'pointer', flexShrink:0 }}>📋</button>
-                    <button onClick={e => { e.stopPropagation(); setDel(p) }} style={{ color:'var(--red)', fontSize:16, padding:7, background:'none', border:'none', cursor:'pointer', flexShrink:0 }}>🗑️</button>
+                    <button onClick={e => { e.stopPropagation(); setEditing(p) }} className="tap-target-44" style={{ color:'var(--t2)', fontSize:16, padding:7, background:'none', border:'none', cursor:'pointer', flexShrink:0 }}>✏️</button>
+                    <button onClick={e => duplicate(p, e)} className="tap-target-44" style={{ color:'var(--t2)', fontSize:16, padding:7, background:'none', border:'none', cursor:'pointer', flexShrink:0 }}>📋</button>
+                    <button onClick={e => { e.stopPropagation(); setDel(p) }} className="tap-target-44" style={{ color:'var(--red)', fontSize:16, padding:7, background:'none', border:'none', cursor:'pointer', flexShrink:0 }}>🗑️</button>
                   </div>
                 )
               })}
@@ -1206,8 +1206,11 @@ function PresetPicker({ userId, customFoods, onFoodCreated, onClose, onUse, meal
           )}
           {presets.length === 0 && !loading && (
             <p style={{ fontSize:12, color:'var(--t3)', marginBottom:14 }}>
-              Você ainda não tem opções cadastradas. Crie ou comece com uma sugestão:
+              Você ainda não tem opções cadastradas. Crie uma ou comece com uma sugestão:
             </p>
+          )}
+          {suggestions.length > 0 && presets.length > 0 && (
+            <p className="label" style={{ margin:'4px 0 8px' }}>Sugestões do app</p>
           )}
           {suggestions.map(opt => (
             <button key={opt.key} onClick={() => onUse(opt)}
@@ -1260,7 +1263,7 @@ function PresetEditor({ preset, userId, customFoods, onFoodCreated, onClose, onS
           style={{ background:'var(--bg3)', border:'1.5px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t1)', padding:'10px', fontSize:22, width:56, flexShrink:0 }}>
           {MEAL_ICONS.map(ic => <option key={ic} value={ic}>{ic}</option>)}
         </select>
-        <input className="inp" placeholder="Nome do prato (ex: Mingau de Aveia)" value={name} onChange={e => setName(e.target.value)} autoFocus />
+        <input className="inp" placeholder="Nome do prato (ex: Mingau de Aveia)" value={name} onChange={e => setName(e.target.value)} data-autofocus />
       </div>
 
       {foods.length > 0 && (

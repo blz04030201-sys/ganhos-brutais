@@ -6,6 +6,7 @@ import { cardioService, cardioConfigService, CARDIO_TYPES, cardioIcon } from '..
 import { WORKOUT_COLORS, GYM_ICONS, GYM_COLORS, dateLabel, calcVolume } from '../utils/helpers'
 import { consumeWorkoutIntent } from '../utils/navIntent'
 import { useDragSort } from '../hooks/useDragSort'
+import { useRefreshOnForeground } from '../hooks/useRefreshOnForeground'
 import { Modal, FormSheet, Confirm, Loader, Empty, SheetPicker } from '../components/UI'
 
 const emptyCardioConfigForm = () => ({ type:'Esteira', customType:'', duration_min:'', intensity:'', distance_km:'', calories:'', notes:'', position:'depois' })
@@ -25,8 +26,8 @@ function CardioConfigCard({ c, onEdit, onDelete }) {
           ].filter(Boolean).join(' · ') || 'sem detalhes definidos'}
         </div>
       </div>
-      <button onClick={() => onEdit(c)} style={{ color:'var(--t2)', fontSize:14, background:'none', border:'none', cursor:'pointer', padding:'4px', flexShrink:0 }}>✏️</button>
-      <button onClick={() => onDelete(c)} style={{ color:'var(--red)', fontSize:14, background:'none', border:'none', cursor:'pointer', padding:'4px', flexShrink:0 }}>🗑️</button>
+      <button onClick={() => onEdit(c)} className="tap-target-44" style={{ color:'var(--t2)', fontSize:14, background:'none', border:'none', cursor:'pointer', padding:'4px', flexShrink:0 }}>✏️</button>
+      <button onClick={() => onDelete(c)} className="tap-target-44" style={{ color:'var(--red)', fontSize:14, background:'none', border:'none', cursor:'pointer', padding:'4px', flexShrink:0 }}>🗑️</button>
     </div>
   )
 }
@@ -157,8 +158,8 @@ function GymList({ onSelect }) {
                     <div style={{ color:'var(--t3)', fontSize:12, marginTop:2 }}>Toque para ver treinos →</div>
                   )}
                 </div>
-                <button onClick={e => openEdit(g, e)} style={{ color:'var(--t3)', fontSize:15, padding:'5px 4px', background:'none', border:'none', cursor:'pointer', flexShrink:0 }}>✏️</button>
-                <button onClick={e => { e.stopPropagation(); setDel(g) }} style={{ color:'var(--t3)', fontSize:15, padding:'5px 4px', background:'none', border:'none', cursor:'pointer', flexShrink:0 }}>🗑️</button>
+                <button onClick={e => openEdit(g, e)} className="tap-target-44" style={{ color:'var(--t3)', fontSize:15, padding:'5px 4px', background:'none', border:'none', cursor:'pointer', flexShrink:0 }}>✏️</button>
+                <button onClick={e => { e.stopPropagation(); setDel(g) }} className="tap-target-44" style={{ color:'var(--t3)', fontSize:15, padding:'5px 4px', background:'none', border:'none', cursor:'pointer', flexShrink:0 }}>🗑️</button>
               </div>
             ))}
           </div>
@@ -167,7 +168,7 @@ function GymList({ onSelect }) {
 
       {modal && (
         <FormSheet title={editing ? 'Editar Academia' : 'Nova Academia'} onClose={() => setModal(false)} onSave={save} saveLabel={editing ? 'Salvar alterações' : 'Criar academia'}>
-          <input className="inp" placeholder="Nome da academia" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} autoFocus />
+          <input className="inp" placeholder="Nome da academia" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} data-autofocus />
           <div>
             <p className="label" style={{ marginBottom:8 }}>Cor de identificação</p>
             <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
@@ -286,8 +287,8 @@ function WorkoutList({ gym, onBack, onSelect }) {
                     <span>{w.day_label ? '·' : ''} {exCounts[w.id] ?? 0} exercícios</span>
                   </div>
                 </div>
-                <button onClick={e => openEdit(w, e)} style={{ color:'var(--t2)', fontSize:18, padding:6, background:'none', border:'none', cursor:'pointer' }}>✏️</button>
-                <button onClick={e => { e.stopPropagation(); setDel(w) }} style={{ color:'var(--red)', fontSize:18, padding:6, background:'none', border:'none', cursor:'pointer' }}>🗑️</button>
+                <button onClick={e => openEdit(w, e)} className="tap-target-44" style={{ color:'var(--t2)', fontSize:18, padding:6, background:'none', border:'none', cursor:'pointer' }}>✏️</button>
+                <button onClick={e => { e.stopPropagation(); setDel(w) }} className="tap-target-44" style={{ color:'var(--red)', fontSize:18, padding:6, background:'none', border:'none', cursor:'pointer' }}>🗑️</button>
               </div>
             ))}
           </div>
@@ -296,7 +297,7 @@ function WorkoutList({ gym, onBack, onSelect }) {
 
       {modal && (
         <FormSheet title={editing ? 'Editar Treino' : 'Novo Treino'} onClose={() => setModal(false)} onSave={save} saveLabel={editing ? 'Salvar alterações' : 'Criar treino'}>
-          <input className="inp" placeholder="Nome curto (ex: Push A)" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} autoFocus />
+          <input className="inp" placeholder="Nome curto (ex: Push A)" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} data-autofocus />
           <input className="inp" placeholder="Nome completo (ex: Peito + Tríceps)" value={form.display_name} onChange={e => setForm(f=>({...f,display_name:e.target.value}))} />
           <div>
             <p className="label" style={{ marginBottom:8 }}>Dia da semana</p>
@@ -349,6 +350,7 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
   const [cardioSaving,    setCardioSaving]    = useState(false)
 
   useEffect(() => { load() }, [workout?.id])
+  useRefreshOnForeground(() => { if (workout?.id) load() })
   const load = async () => {
     try {
       const data = await exerciseService.listByWorkout(workout.id)
@@ -504,8 +506,8 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
                     </div>
                   )}
                   <div style={{ display:'flex', flexDirection:'column', gap:3, flexShrink:0, marginLeft:4 }}>
-                    <button onClick={e => openEdit(ex, e)} style={{ color:'var(--t2)', padding:'2px 5px', fontSize:14, background:'none', border:'none', cursor:'pointer' }}>✏️</button>
-                    <button onClick={e => { e.stopPropagation(); setDel(ex) }} style={{ color:'var(--red)', padding:'2px 5px', fontSize:14, background:'none', border:'none', cursor:'pointer' }}>🗑️</button>
+                    <button onClick={e => openEdit(ex, e)} className="tap-target-row" style={{ color:'var(--t2)', padding:'2px 5px', fontSize:14, background:'none', border:'none', cursor:'pointer' }}>✏️</button>
+                    <button onClick={e => { e.stopPropagation(); setDel(ex) }} className="tap-target-row" style={{ color:'var(--red)', padding:'2px 5px', fontSize:14, background:'none', border:'none', cursor:'pointer' }}>🗑️</button>
                   </div>
                 </div>
                 <div style={{ display:'flex', borderTop:'1px solid var(--b2)', alignItems:'stretch' }}>
@@ -551,7 +553,7 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
 
       {modal && (
         <FormSheet title={editing ? 'Editar Exercício' : 'Novo Exercício'} onClose={() => setModal(false)} onSave={save} saveLabel={editing ? 'Salvar alterações' : 'Criar exercício'}>
-          <input className="inp" placeholder="Nome do exercício" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} autoFocus />
+          <input className="inp" placeholder="Nome do exercício" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} data-autofocus />
           <div>
             <p className="label" style={{ marginBottom:8 }}>Séries válidas</p>
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
@@ -585,7 +587,7 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
           </div>
 
           {cardioForm.type === 'Personalizado' && (
-            <input className="inp" placeholder="Nome do cardio" value={cardioForm.customType} onChange={e => setCardioForm(f=>({...f,customType:e.target.value}))} autoFocus />
+            <input className="inp" placeholder="Nome do cardio" value={cardioForm.customType} onChange={e => setCardioForm(f=>({...f,customType:e.target.value}))} data-autofocus />
           )}
 
           <div>
@@ -730,7 +732,7 @@ function LogSession({ ex, gym, workout, onBack, onDone }) {
       <div className="screen-header">
         <button className="btn-back" onClick={onBack}>← Voltar</button>
         <input type="date" value={date} onChange={e => setDate(e.target.value)}
-          style={{ background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t1)', padding:'6px 10px', fontSize:13 }} />
+          style={{ background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t1)', padding:'6px 10px', fontSize:16 }} />
       </div>
 
       <div style={{ padding:'0 16px 12px' }}>
@@ -845,7 +847,7 @@ function LogSession({ ex, gym, workout, onBack, onDone }) {
         </div>
       )}
 
-      <div style={{ padding:'0 16px 16px' }}>
+      <div className="sticky-action-bar" style={{ padding:'10px 16px 16px' }}>
         <button className="btn btn-primary btn-full" onClick={save} disabled={saving} style={{ fontSize:16, padding:15 }}>
           {saving ? '⏳ Salvando...' : '✅ Salvar Treino'}
         </button>

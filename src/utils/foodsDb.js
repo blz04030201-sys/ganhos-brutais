@@ -35,6 +35,7 @@ export const FOODS_DB = [
   {n:"Creatina",c:0,p:0,cb:0,f:0,u:"g"},
   {n:"BCAA",c:36,p:8,cb:0,f:0,u:"g"},
   {n:"Maltodextrina",c:380,p:0,cb:95,f:0,u:"g"},
+  {n:"Supercoffee (sachê)",c:410,p:33,cb:37,f:16,u:"unid",g:30,alt:["g"]},
   // Aveia
   {n:"Aveia em flocos finos",c:367,p:14.5,cb:62,f:7.5,u:"g"},
   {n:"Aveia em flocos grossos",c:364,p:13.2,cb:64,f:6.8,u:"g"},
@@ -76,6 +77,10 @@ export const FOODS_DB = [
   {n:"Tapioca (goma)",c:340,p:0.2,cb:85,f:0.1,u:"g"},
   {n:"Torrada",c:388,p:10,cb:72,f:6.5,u:"unid",g:10,alt:["g"]},
   {n:"Cuscuz",c:340,p:11,cb:72,f:1.3,u:"g"},
+  {n:"Biscoito de arroz",c:387,p:8,cb:82,f:2.8,u:"unid",g:9,alt:["g"]},
+  {n:"Biscoito de polvilho",c:495,p:5,cb:60,f:26,u:"g"},
+  {n:"Bolacha água e sal",c:432,p:10,cb:73,f:12,u:"g"},
+  {n:"Pipoca sem óleo (estourada)",c:387,p:13,cb:78,f:4.5,u:"g"},
   // Frutas
   {n:"Banana prata",c:92,p:1.4,cb:23.8,f:0.1,u:"unid",g:70,alt:["g"]},
   {n:"Banana nanica",c:89,p:1.1,cb:22.8,f:0.1,u:"unid",g:100,alt:["g"]},
@@ -89,6 +94,11 @@ export const FOODS_DB = [
   {n:"Abacaxi",c:50,p:0.5,cb:13,f:0.1,u:"g"},
   {n:"Kiwi",c:61,p:1.1,cb:15,f:0.5,u:"unid",g:70,alt:["g"]},
   {n:"Pera",c:57,p:0.4,cb:15.2,f:0.1,u:"unid",g:150,alt:["g"]},
+  {n:"Mirtilo (blueberry)",c:57,p:0.7,cb:14.5,f:0.3,u:"g"},
+  {n:"Amora",c:43,p:1.4,cb:10,f:0.5,u:"g"},
+  {n:"Framboesa",c:52,p:1.2,cb:12,f:0.7,u:"g"},
+  {n:"Açaí polpa (sem açúcar)",c:58,p:0.8,cb:6.2,f:3.9,u:"g"},
+  {n:"Goji berry desidratada",c:349,p:14,cb:77,f:0.4,u:"g"},
   // Verduras & Legumes
   {n:"Brócolis",c:34,p:2.8,cb:7,f:0.4,u:"g"},
   {n:"Alface",c:15,p:1.4,cb:2.9,f:0.2,u:"g"},

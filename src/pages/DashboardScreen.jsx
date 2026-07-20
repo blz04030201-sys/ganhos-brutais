@@ -818,7 +818,7 @@ function LogModal({ ex, sets, obs, date, history, saving, onClose, onSave, onSet
             {prW > 0 && <span className="chip chip-gold" style={{ marginTop:6, display:'inline-block' }}>🏆 PR atual: {prW}kg</span>}
           </div>
           <input type="date" value={date} onChange={e => onDateChange(e.target.value)}
-            style={{ background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t1)', padding:'6px 8px', fontSize:12 }} />
+            style={{ background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t1)', padding:'6px 8px', fontSize:16 }} />
         </div>
 
         {/* Scrollable body */}

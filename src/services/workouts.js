@@ -219,12 +219,8 @@ export const logService = {
     await supabase.from('exercise_sets').delete().eq('log_id', logId)
     if (!sets.length) return []
 
-    // Detect PRs: highest weight ever for this exercise
-    const { data: prData } = await supabase
-      .from('exercise_sets')
-      .select('weight')
-      .eq('log_id', logId) // won't find any after delete — we need another approach
-    // We'll just mark all sets and let the UI handle PR display
+    // PR detection (is_pr) is computed by the caller before this runs, using
+    // the exercise's full history — see WorkoutsScreen's save().
     const rows = sets.map((s, i) => ({
       log_id: logId,
       user_id: userId,

@@ -134,8 +134,8 @@ export default function BodyScreen() {
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
                   <span style={{ fontWeight:700, fontSize:15 }}>{dateLabel(m.date)}</span>
                   <div style={{ display:'flex', gap:8 }}>
-                    <button onClick={() => openEdit(m)} style={{ color:'var(--t3)', padding:4 }}>✏️</button>
-                    <button onClick={() => setDel(m)} style={{ color:'var(--red)', padding:4 }}>🗑️</button>
+                    <button onClick={() => openEdit(m)} className="tap-target-44" style={{ color:'var(--t3)', padding:4 }}>✏️</button>
+                    <button onClick={() => setDel(m)} className="tap-target-44" style={{ color:'var(--red)', padding:4 }}>🗑️</button>
                   </div>
                 </div>
                 <div style={{ display:'flex', flexWrap:'wrap', gap:12 }}>
