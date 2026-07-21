@@ -793,12 +793,6 @@ function LogSession({ ex, gym, workout, onBack, onDone }) {
         </button>
       </div>
 
-      <div style={{ padding:'0 16px 16px' }}>
-        <p className="label" style={{ marginBottom:8 }}>Observação</p>
-        <textarea className="inp" rows={2} placeholder="Ex: dormi bem, bom peso hoje..."
-          value={obs} onChange={e => setObs(e.target.value)} style={{ resize:'none' }} />
-      </div>
-
       {/* ── CARDIO — referência(s) do treino, editável para o dia ───── */}
       {cardioItems.length > 0 && (
         <div style={{ margin:'0 16px 16px' }}>
@@ -851,9 +845,15 @@ function LogSession({ ex, gym, workout, onBack, onDone }) {
               )}
             </div>
           ))}
-          <p style={{ fontSize:10.5, color:'var(--t4)' }}>O cardio é salvo automaticamente junto com o treino. Para adicionar ou remover uma referência de cardio, use a aba do treino.</p>
+          <p style={{ fontSize:10.5, color:'var(--t4)' }}>O cardio é salvo automaticamente junto com o treino.</p>
         </div>
       )}
+
+      <div style={{ padding:'0 16px 16px' }}>
+        <p className="label" style={{ marginBottom:8 }}>Observação</p>
+        <textarea className="inp" rows={2} placeholder="Ex: dormi bem, bom peso hoje..."
+          value={obs} onChange={e => setObs(e.target.value)} style={{ resize:'none' }} />
+      </div>
 
       <div className="sticky-action-bar" style={{ padding:'10px 16px 16px' }}>
         <button className="btn btn-primary btn-full" onClick={save} disabled={saving} style={{ fontSize:16, padding:15 }}>
