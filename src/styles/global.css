@@ -502,15 +502,6 @@ a { color: inherit; text-decoration: none; }
    screens that aren't a FormSheet modal (e.g. Registrar Treino).
    Sticks to the bottom of its scrolling ".screen" ancestor and is
    pushed up by --keyboard-offset while the keyboard is open. */
-.sticky-action-bar {
-  position: sticky;
-  bottom: calc(var(--keyboard-offset, 0px) + max(var(--safe-bottom), 8px));
-  z-index: 5;
-  background: var(--bg);
-  padding-top: 10px;
-  transition: bottom 0.2s ease;
-}
-
 /* ── ENLARGED TAP TARGET (invisible, doesn't affect layout/visual size) ──
    Use on small icon buttons (✏️ 🗑️ etc.) so the visible icon stays exactly
    as designed, while the actual tappable area grows to a comfortable size.
