@@ -652,6 +652,7 @@ function SwapDishPicker({ userId, mealName, customFoods, currentName, onClose, o
   const [allPresets, setAllPresets] = useState([])
   const [loading,    setLoading]    = useState(true)
   const [creating,   setCreating]   = useState(false)   // abrir PresetEditor inline
+  const [editing,    setEditing]    = useState(null)     // preset sendo editado, ou null
   const [del,        setDel]        = useState(null)
 
   const groupKey    = mealGroupKey(mealName)
@@ -684,6 +685,12 @@ function SwapDishPicker({ userId, mealName, customFoods, currentName, onClose, o
     else onClose()
   }
 
+  // Editar um prato já salvo: só atualiza a lista, não troca o prato do dia
+  const handlePresetEdited = async () => {
+    setEditing(null)
+    setAllPresets(await presetService.list(userId))
+  }
+
   if (creating) {
     return (
       <PresetEditor
@@ -694,6 +701,20 @@ function SwapDishPicker({ userId, mealName, customFoods, currentName, onClose, o
         onFoodCreated={() => {}}
         onClose={() => setCreating(false)}
         onSaved={handlePresetSaved}
+      />
+    )
+  }
+
+  if (editing) {
+    return (
+      <PresetEditor
+        preset={editing}
+        mealGroup={groupKey}
+        userId={userId}
+        customFoods={customFoods || []}
+        onFoodCreated={() => {}}
+        onClose={() => setEditing(null)}
+        onSaved={handlePresetEdited}
       />
     )
   }
@@ -755,6 +776,10 @@ function SwapDishPicker({ userId, mealName, customFoods, currentName, onClose, o
                   </div>
                   {!isCurrent && <span style={{ color:'var(--accent)', fontSize:18, flexShrink:0, fontWeight:300 }}>›</span>}
                 </button>
+                <button onClick={() => setEditing(p)} className="tap-target-44"
+                  style={{ flexShrink:0, padding:'10px 10px', background:'none', border:'none', borderLeft:'1px solid var(--b2)', color:'var(--t2)', fontSize:15, cursor:'pointer' }}>
+                  ✏️
+                </button>
                 <button onClick={() => setDel(p)} className="tap-target-44"
                   style={{ flexShrink:0, padding:'10px 12px', background:'none', border:'none', borderLeft:'1px solid var(--b2)', color:'var(--red)', fontSize:15, cursor:'pointer' }}>
                   🗑️
@@ -763,10 +788,12 @@ function SwapDishPicker({ userId, mealName, customFoods, currentName, onClose, o
             )
           })}
 
-          {/* Sem opções cadastradas: mostrar sugestões */}
-          {presets.length === 0 && suggestions.length > 0 && (
+          {/* Sugestões do app — sempre visíveis, mesmo com opções salvas */}
+          {suggestions.length > 0 && (
             <>
-              <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.08em', color:'var(--t3)', textTransform:'uppercase', marginBottom:4 }}>Sugestões para começar</div>
+              <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.08em', color:'var(--t3)', textTransform:'uppercase', marginBottom:4, marginTop: presets.length > 0 ? 6 : 0 }}>
+                {presets.length > 0 ? 'Sugestões do app' : 'Sugestões para começar'}
+              </div>
               {suggestions.map(opt => {
                 const m = sumMacros(opt.foods || [])
                 return (

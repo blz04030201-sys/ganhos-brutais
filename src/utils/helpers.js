@@ -31,9 +31,26 @@ export const GYM_COLORS = [
   '#818CF8','#6366F1','#94A3B8','#FFFFFF',
 ]
 export const GYM_ICONS = ['🏋️','💪','🏃','⚡','🔥','🥊','🏠','✈️','🎯','🏆','⚽','🧘']
-export const MEAL_ICONS = ['☀️','🍽️','☕','🌙','🥗','🍎','🌮','🥛','🍵','🥜','🔥','⚡','🫙','🥣','🍳']
+export const MEAL_ICONS = [
+  '☀️','🍽️','☕','🌙','🥗','🍎','🌮','🥛','🍵','🥜','🔥','⚡','🫙','🥣','🍳',
+  '🍗','🍖','🥩','🍔','🌭','🥪','🌯','🍕','🍝','🍜','🍲','🍱','🍚','🍞','🥖',
+  '🥑','🥦','🥕','🌽','🍠','🍄','🫘','🍌','🍇','🍓','🍉','🍊','🍍','🥝','🍒',
+  '🧀','🥚','🥞','🧇','🍩','🍪','🍫','🍰','🍯','🥤','🧃','🍤','🐟','🍣','🥥',
+]
 
 export function clamp(v, min, max) { return Math.max(min, Math.min(max, v)) }
+
+/**
+ * Estimated one-rep max (Epley formula) — used to compare "best set" across
+ * different weight×reps combos, so increasing either one counts as progress.
+ * Reps are capped at 30 to avoid unrealistic extrapolation on high-rep sets.
+ */
+export function estimate1RM(weight, reps) {
+  const w = parseFloat(weight) || 0
+  const r = Math.min(parseInt(reps) || 1, 30)
+  if (!w) return 0
+  return w * (1 + r / 30)
+}
 
 export function sumMacros(items = []) {
   return items.reduce((acc, item) => ({

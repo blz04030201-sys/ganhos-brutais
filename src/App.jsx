@@ -15,15 +15,30 @@ function useKeyboardSafeArea() {
     const vv = window.visualViewport
     const root = document.documentElement
     if (!vv) { root.style.setProperty('--vvh', `${window.innerHeight}px`); return }
-    const update = () => {
+
+    let debounceTimer = null
+    const apply = () => {
       const offset = window.innerHeight - vv.height - vv.offsetTop
       root.style.setProperty('--keyboard-offset', `${Math.max(0, offset)}px`)
       root.style.setProperty('--vvh', `${vv.height}px`)
     }
-    update()
+    // Apply immediately once (covers initial load), then debounce further
+    // events so the many intermediate resize/scroll events fired *while*
+    // the on-screen keyboard is still animating open/closed don't each
+    // nudge sticky elements — only the settled final value is applied,
+    // and CSS transitions handle animating to it smoothly in one motion.
+    apply()
+    const update = () => {
+      clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(apply, 120)
+    }
     vv.addEventListener('resize', update)
     vv.addEventListener('scroll', update)
-    return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update) }
+    return () => {
+      clearTimeout(debounceTimer)
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
   }, [])
 }
 

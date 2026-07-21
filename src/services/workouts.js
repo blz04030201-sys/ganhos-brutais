@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { estimate1RM } from '../utils/helpers'
 
 // ── GYMS ─────────────────────────────────────────────────────
 export const gymService = {
@@ -153,7 +154,9 @@ export const logService = {
   },
 
   /** Get the best (PR) weight×reps ever logged for each exercise in a batch — used to
-   *  show "PR" alongside the last session directly on the exercise list. */
+   *  show "PR" alongside the last session directly on the exercise list.
+   *  Compares by estimated 1RM so a higher-rep set at the same weight (or a
+   *  lower weight with meaningfully more reps) also counts as progress. */
   async listPRsByExerciseIds(exerciseIds) {
     if (!exerciseIds || !exerciseIds.length) return {}
     const { data, error } = await supabase
@@ -166,7 +169,8 @@ export const logService = {
       const exId = row.exercise_logs?.exercise_id
       const w = parseFloat(row.weight) || 0
       if (!exId || !w) continue
-      if (!map[exId] || w > map[exId].weight) map[exId] = { weight: w, reps: row.reps }
+      const e1rm = estimate1RM(w, row.reps)
+      if (!map[exId] || e1rm > map[exId].e1rm) map[exId] = { weight: w, reps: row.reps, e1rm }
     }
     return map
   },

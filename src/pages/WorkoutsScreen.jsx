@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useApp } from '../hooks/useAppContext'
 import { gymService, workoutService, exerciseService, logService } from '../services/workouts'
 import { cardioService, cardioConfigService, CARDIO_TYPES, cardioIcon } from '../services/cardio'
-import { WORKOUT_COLORS, GYM_ICONS, GYM_COLORS, dateLabel, calcVolume } from '../utils/helpers'
+import { WORKOUT_COLORS, GYM_ICONS, GYM_COLORS, dateLabel, calcVolume, estimate1RM } from '../utils/helpers'
 import { consumeWorkoutIntent } from '../utils/navIntent'
 import { useDragSort } from '../hooks/useDragSort'
 import { useRefreshOnForeground } from '../hooks/useRefreshOnForeground'
@@ -697,7 +697,15 @@ function LogSession({ ex, gym, workout, onBack, onDone }) {
   const toggleSkipCardio = (configId) =>
     setCardioItems(p => p.map(it => it.configId===configId ? { ...it, skip: !it.skip } : it))
 
-  const prWeight = logs.reduce((m, l) => Math.max(m, ...(l.sets||[]).map(s => parseFloat(s.weight)||0)), 0)
+  // Melhor série de todos os tempos, considerando peso E repetições juntos —
+  // aumentar qualquer um dos dois conta como progresso (não só o peso).
+  const bestSet = logs.reduce((best, l) => {
+    for (const s of (l.sets || [])) {
+      const e1rm = estimate1RM(s.weight, s.reps)
+      if (e1rm > (best?.e1rm || 0)) best = { weight: parseFloat(s.weight) || 0, reps: s.reps, e1rm }
+    }
+    return best
+  }, null)
   const lastSession = logs[0]
   const vol = sets.filter(s=>s.weight&&s.reps).reduce((a,s)=>(a+(parseFloat(s.weight)||0)*(parseInt(s.reps)||0)),0)
 
@@ -708,7 +716,7 @@ function LogSession({ ex, gym, workout, onBack, onDone }) {
     try {
       const log = await logService.upsertLog(userId, ex.id, date, obs)
       await logService.replaceSets(log.id, userId, filled.map(s => ({
-        ...s, is_pr: (parseFloat(s.weight)||0) > prWeight && prWeight > 0
+        ...s, is_pr: estimate1RM(s.weight, s.reps) > (bestSet?.e1rm || 0)
       })))
       // Cardio — salva junto com o treino (referência editada para esta data)
       for (const it of cardioItems) {
@@ -738,7 +746,7 @@ function LogSession({ ex, gym, workout, onBack, onDone }) {
       <div style={{ padding:'0 16px 12px' }}>
         <h2 style={{ fontSize:20, fontWeight:700, color:'var(--t1)' }}>{ex.name}</h2>
         <div style={{ display:'flex', gap:8, marginTop:6, flexWrap:'wrap' }}>
-          {prWeight > 0 && <span className="chip chip-gold">🏆 PR: {prWeight}kg</span>}
+          {bestSet && <span className="chip chip-gold">🏆 PR: {bestSet.weight}kg × {bestSet.reps}</span>}
           {vol > 0 && <span className="chip">📊 Vol: {vol}kg</span>}
         </div>
       </div>
@@ -758,7 +766,7 @@ function LogSession({ ex, gym, workout, onBack, onDone }) {
       <div style={{ padding:'0 16px' }}>
         <p className="label" style={{ marginBottom:12 }}>Séries</p>
         {sets.map((s, i) => {
-          const isNewPR = (parseFloat(s.weight)||0) > prWeight && prWeight > 0
+          const isNewPR = estimate1RM(s.weight, s.reps) > (bestSet?.e1rm || 0) && (s.weight || s.reps)
           return (
             <div key={i} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:9 }}>
               <div style={{ width:26, height:26, borderRadius:'50%', background:'var(--b1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color:'var(--t2)', flexShrink:0 }}>{i+1}</div>
@@ -868,7 +876,14 @@ function ExHistory({ ex, onBack }) {
     logService.listByExercise(ex.id).then(d => { setLogs(d); setLoading(false) })
   }, [ex?.id])
 
-  const prWeight = logs.reduce((m,l) => Math.max(m,...(l.sets||[]).map(s=>parseFloat(s.weight)||0)),0)
+  // Melhor série de todos os tempos (peso + repetições juntos)
+  const bestSet = logs.reduce((best, l) => {
+    for (const s of (l.sets || [])) {
+      const e1rm = estimate1RM(s.weight, s.reps)
+      if (e1rm > (best?.e1rm || 0)) best = { weight: parseFloat(s.weight) || 0, reps: s.reps, e1rm }
+    }
+    return best
+  }, null)
 
   // Chronological (oldest → newest) for the chart, one point per session:
   // top weight lifted and its best rep count for that session.
@@ -897,7 +912,7 @@ function ExHistory({ ex, onBack }) {
       </div>
       <div style={{ padding:'0 16px 16px' }}>
         <h2 style={{ fontSize:20, fontWeight:700, color:'var(--t1)', marginBottom:6 }}>{ex.name}</h2>
-        {prWeight > 0 && <span className="chip chip-gold">🏆 PR histórico: {prWeight}kg</span>}
+        {bestSet && <span className="chip chip-gold">🏆 PR histórico: {bestSet.weight}kg × {bestSet.reps}</span>}
       </div>
 
       {/* Evolution chart */}
