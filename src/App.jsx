@@ -17,9 +17,16 @@ function useKeyboardSafeArea() {
     if (!vv) { root.style.setProperty('--vvh', `${window.innerHeight}px`); return }
 
     let debounceTimer = null
+    let lastOffset = 0
     const apply = () => {
-      const offset = window.innerHeight - vv.height - vv.offsetTop
-      root.style.setProperty('--keyboard-offset', `${Math.max(0, offset)}px`)
+      const offset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      // Ignore tiny fluctuations (a few px) — these happen while the keyboard
+      // itself is still sliding open/closed and don't reflect a real change;
+      // reacting to every one of them is what made sticky buttons "shake".
+      if (Math.abs(offset - lastOffset) >= 8 || offset === 0) {
+        lastOffset = offset
+        root.style.setProperty('--keyboard-offset', `${offset}px`)
+      }
       root.style.setProperty('--vvh', `${vv.height}px`)
     }
     // Apply immediately once (covers initial load), then debounce further
@@ -30,7 +37,7 @@ function useKeyboardSafeArea() {
     apply()
     const update = () => {
       clearTimeout(debounceTimer)
-      debounceTimer = setTimeout(apply, 120)
+      debounceTimer = setTimeout(apply, 160)
     }
     vv.addEventListener('resize', update)
     vv.addEventListener('scroll', update)

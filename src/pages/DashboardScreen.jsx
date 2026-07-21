@@ -4,7 +4,7 @@ import { gymService, workoutService, exerciseService, logService } from '../serv
 import { cardioConfigService, cardioIcon } from '../services/cardio'
 import { profileService } from '../services/profile'
 import { dietGoalsService, mealService, mealPlanService } from '../services/diet'
-import { todayISO, dateLabel, sumMacros, pickTodaysWorkout } from '../utils/helpers'
+import { todayISO, dateLabel, sumMacros, matchesToday } from '../utils/helpers'
 import { setWorkoutIntent } from '../utils/navIntent'
 import { Loader } from '../components/UI'
 
@@ -25,6 +25,7 @@ export default function DashboardScreen({ setTab }) {
   const [selectedGym,  setSelectedGym]  = useState(null)
   const [workouts,     setWorkouts]      = useState([])
   const [selectedWk,   setSelectedWk]   = useState(null)
+  const [restDay,      setRestDay]      = useState(false)
   const [exercises,    setExercises]     = useState([])
   const [cardioConfigs, setCardioConfigs] = useState([])
   const [todayLogs,    setTodayLogs]     = useState([])
@@ -68,8 +69,10 @@ export default function DashboardScreen({ setTab }) {
         setSelectedGym(gym)
         const ws = await workoutService.listByGym(gym.id)
         setWorkouts(ws)
-        // pick today's scheduled workout (by day_label), fallback to the first one
-        const wk = pickTodaysWorkout(ws)
+        // pick today's scheduled workout (by day_label) — if none matches,
+        // this is a rest day: don't silently pick a random workout instead.
+        const wk = ws.find(w => matchesToday(w.day_label))
+        setRestDay(ws.length > 0 && !wk)
         if (wk) {
           setSelectedWk(wk)
           await loadExercises(wk)
@@ -114,7 +117,8 @@ export default function DashboardScreen({ setTab }) {
     setCardioConfigs([])
     const ws = await workoutService.listByGym(gym.id)
     setWorkouts(ws)
-    const wk = pickTodaysWorkout(ws)
+    const wk = ws.find(w => matchesToday(w.day_label))
+    setRestDay(ws.length > 0 && !wk)
     if (wk) { setSelectedWk(wk); await loadExercises(wk) }
     try { await profileService.upsert(userId, { last_gym_id: gym.id }) } catch(_) {}
   }
@@ -211,6 +215,7 @@ export default function DashboardScreen({ setTab }) {
           setTab={setTab}
           accentColor={accentColor}
           cardioConfigs={cardioConfigs}
+          restDay={restDay}
         />
       </div>
 
@@ -268,7 +273,7 @@ export default function DashboardScreen({ setTab }) {
 }
 
 // ── WORKOUT CARD ──────────────────────────────────────────────
-function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGym, workouts, onSelectWorkout, onStart, setTab, accentColor = '#3B82F6', cardioConfigs = [] }) {
+function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGym, workouts, onSelectWorkout, onStart, setTab, accentColor = '#3B82F6', cardioConfigs = [], restDay = false }) {
   const muscleGroups = wk?.display_name?.split(/[+·,]/).map(s => s.trim()).filter(Boolean) || []
   const [switching, setSwitching] = useState(false)
 
@@ -398,6 +403,30 @@ function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGy
               {doneCount > 0 ? '▶ Continuar Treino' : '▶ Iniciar Treino'} →
             </button>
           </>
+        ) : gym && restDay ? (
+          /* Rest day: no workout scheduled for today at this gym */
+          <div>
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+              <span style={{ fontSize:22 }}>😴</span>
+              <div>
+                <p style={{ color:'rgba(255,255,255,0.85)', fontSize:15, fontWeight:700 }}>Dia de descanso</p>
+                <p style={{ color:'rgba(255,255,255,0.5)', fontSize:12 }}>Nenhum treino agendado para hoje em {gym.name}.</p>
+              </div>
+            </div>
+            {workouts.length > 0 && (
+              <>
+                <p style={{ color:'rgba(255,255,255,0.5)', fontSize:12.5, marginBottom:8 }}>Quer treinar mesmo assim?</p>
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                  {workouts.map(w => (
+                    <button key={w.id} onClick={() => onSelectWorkout(w)}
+                      style={{ padding:'8px 14px', borderRadius:'var(--r)', background:`${w.color||accentColor}22`, border:`1px solid ${w.color||accentColor}44`, color:w.color||`color-mix(in srgb, ${accentColor} 80%, white)`, fontSize:13, fontWeight:700, cursor:'pointer' }}>
+                      {w.name}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         ) : (
           /* No workout selected */
           <div>
