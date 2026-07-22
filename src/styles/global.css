@@ -45,7 +45,7 @@
      the raw value, to guarantee a small buffer either way. */
   --safe-top:    env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-bottom-min: 28px;
+  --safe-bottom-min: 34px;
   --safe-left:   env(safe-area-inset-left, 0px);
   --safe-right:  env(safe-area-inset-right, 0px);
   /* Visual-viewport height in px, kept in sync by useKeyboardSafeArea() in
