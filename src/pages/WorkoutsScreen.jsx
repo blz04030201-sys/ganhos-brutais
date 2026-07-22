@@ -11,82 +11,34 @@ import { Modal, FormSheet, Confirm, Loader, Empty, SheetPicker } from '../compon
 
 const emptyCardioConfigForm = () => ({ type:'Esteira', customType:'', duration_min:'', intensity:'', distance_km:'', calories:'', notes:'', position:'depois' })
 
-function CardioConfigCard({ c, onEdit, onDelete, log, saving, onUpdateLog, onToggleSkip, onSaveLog }) {
-  const [expanded, setExpanded] = useState(false)
-  if (!log) return null
-
-  const statusText = log.skip
-    ? 'Não realizado hoje'
-    : log.savedToday
-      ? `Hoje: ${log.duration_min ? `${log.duration_min} min` : ''}${log.intensity ? ` · ${log.intensity}` : ''}`
-      : 'Ainda não registrado hoje'
-
+function CardioConfigCard({ c, onEdit, onDelete, doneToday, saving, onToggleDone }) {
   return (
-    <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--r)', overflow:'hidden' }}>
-      <button onClick={() => setExpanded(e => !e)}
-        style={{ width:'100%', padding:'10px 12px', display:'flex', alignItems:'center', gap:10, background:'none', border:'none', cursor:'pointer', textAlign:'left' }}>
-        <span style={{ fontSize:18, flexShrink:0 }}>{cardioIcon(c.type)}</span>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontWeight:700, fontSize:13, color:'var(--t1)' }}>{c.type}</div>
-          <div style={{ fontSize:11.5, color: log.savedToday ? 'var(--accent)' : 'var(--t3)' }}>{statusText}</div>
+    <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--r)', padding:'10px 12px', display:'flex', alignItems:'center', gap:10 }}>
+      <span style={{ fontSize:18, flexShrink:0 }}>{cardioIcon(c.type)}</span>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ fontWeight:700, fontSize:13, color:'var(--t1)' }}>{c.type}</div>
+        <div style={{ fontSize:11.5, color:'var(--t3)' }}>
+          {[
+            c.duration_min ? `${c.duration_min} min` : null,
+            c.intensity,
+            c.distance_km ? `${c.distance_km} km` : null,
+            c.calories ? `${c.calories} kcal` : null,
+          ].filter(Boolean).join(' · ') || 'sem detalhes definidos'}
         </div>
-        <span style={{ color:'var(--t3)', fontSize:12, flexShrink:0, transform: expanded ? 'rotate(180deg)' : 'none', transition:'transform 0.15s' }}>▾</span>
-        <button onClick={e => { e.stopPropagation(); onEdit(c) }} className="tap-target-44" style={{ color:'var(--t2)', fontSize:14, background:'none', border:'none', cursor:'pointer', padding:'4px', flexShrink:0 }}>✏️</button>
-        <button onClick={e => { e.stopPropagation(); onDelete(c) }} className="tap-target-44" style={{ color:'var(--red)', fontSize:14, background:'none', border:'none', cursor:'pointer', padding:'4px', flexShrink:0 }}>🗑️</button>
+      </div>
+      <button onClick={() => onToggleDone(c.id)} disabled={saving} className="tap-target-44"
+        title={doneToday ? 'Feito hoje — toque para desmarcar' : 'Marcar como feito hoje'}
+        style={{
+          width:26, height:26, borderRadius:'50%', flexShrink:0, cursor:'pointer',
+          border:`2px solid ${doneToday ? 'var(--accent)' : 'var(--b2)'}`,
+          background: doneToday ? 'var(--accent)' : 'transparent',
+          color:'#fff', fontSize:14, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center',
+          transition:'background-color 0.15s, border-color 0.15s',
+        }}>
+        {doneToday ? '✓' : ''}
       </button>
-
-      {expanded && (
-        <div style={{ padding:'0 12px 12px' }}>
-          <div style={{ height:1, background:'var(--b1)', margin:'0 0 12px' }} />
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
-            <span className="label" style={{ margin:0 }}>Registro de hoje</span>
-            <button onClick={() => onToggleSkip(c.id)}
-              style={{ fontSize:11, fontWeight:700, color: log.skip ? 'var(--t3)' : 'var(--red)', background:'none', border:'none', cursor:'pointer' }}>
-              {log.skip ? '↺ Fazer hoje' : '✕ Não fiz hoje'}
-            </button>
-          </div>
-
-          {!log.skip && (
-            <>
-              {log.last && (
-                <p style={{ fontSize:11, color:'var(--t3)', marginBottom:8 }}>
-                  Último registrado: {log.last.duration_min ? `${log.last.duration_min} min` : ''}{log.last.intensity ? ` · ${log.last.intensity}` : ''} ({dateLabel(log.last.log_date)})
-                </p>
-              )}
-              <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:8 }}>
-                {CARDIO_TYPES.map(t => (
-                  <button key={t.key} onClick={() => onUpdateLog(c.id, 'type', t.key)}
-                    style={{ padding:'4px 9px', borderRadius:99, fontSize:10.5, fontWeight:700, cursor:'pointer',
-                      background: log.type===t.key ? 'var(--accent)' : 'var(--bg3)',
-                      border:`1px solid ${log.type===t.key ? 'var(--accent)' : 'var(--b1)'}`,
-                      color: log.type===t.key ? '#fff' : 'var(--t3)' }}>
-                    {t.icon} {t.key}
-                  </button>
-                ))}
-              </div>
-              <div style={{ display:'flex', gap:8, marginBottom:8 }}>
-                <div style={{ position:'relative', flex:1 }}>
-                  <input className="inp" type="number" inputMode="numeric" placeholder="Tempo"
-                    value={log.duration_min} onChange={e => onUpdateLog(c.id,'duration_min', e.target.value)} style={{ paddingRight:30 }} />
-                  <span style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)', fontSize:11, color:'var(--t3)' }}>min</span>
-                </div>
-                <input className="inp" placeholder="Intensidade (ex: Velocidade 6)"
-                  value={log.intensity} onChange={e => onUpdateLog(c.id,'intensity', e.target.value)} style={{ flex:1.4 }} />
-              </div>
-              <div style={{ display:'flex', gap:8, marginBottom:10 }}>
-                <input className="inp" type="number" inputMode="decimal" placeholder="Distância (km, opcional)"
-                  value={log.distance_km} onChange={e => onUpdateLog(c.id,'distance_km', e.target.value)} style={{ flex:1 }} />
-                <input className="inp" type="number" inputMode="numeric" placeholder="Calorias (opcional)"
-                  value={log.calories} onChange={e => onUpdateLog(c.id,'calories', e.target.value)} style={{ flex:1 }} />
-              </div>
-            </>
-          )}
-
-          <button className="btn btn-primary btn-full" onClick={() => onSaveLog(c.id)} disabled={saving} style={{ fontSize:13, padding:11 }}>
-            {saving ? '⏳ Salvando...' : log.skip ? 'Confirmar que não fiz hoje' : '✅ Salvar cardio de hoje'}
-          </button>
-        </div>
-      )}
+      <button onClick={() => onEdit(c)} className="tap-target-44" style={{ color:'var(--t2)', fontSize:14, background:'none', border:'none', cursor:'pointer', padding:'4px', flexShrink:0 }}>✏️</button>
+      <button onClick={() => onDelete(c)} className="tap-target-44" style={{ color:'var(--red)', fontSize:14, background:'none', border:'none', cursor:'pointer', padding:'4px', flexShrink:0 }}>🗑️</button>
     </div>
   )
 }
@@ -410,8 +362,9 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
 
   // Registro de cardio de HOJE — vive aqui na tela do treino, não dentro do
   // registro de um exercício específico, já que o cardio não pertence a
-  // nenhum exercício em particular.
-  const [cardioLog,        setCardioLog]        = useState({}) // { [configId]: {...} }
+  // nenhum exercício em particular. Simples: feito ou não feito, usando os
+  // valores da referência (que o usuário mantém atualizados via editar).
+  const [cardioDone,       setCardioDone]       = useState({}) // { [configId]: { done, logId } }
   const [cardioLogSaving,  setCardioLogSaving]  = useState({}) // { [configId]: bool }
 
   useEffect(() => { load() }, [workout?.id])
@@ -429,50 +382,25 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
       setLastSets(last)
       setPrs(prMap)
       setCardioConfigs(cfgs)
-      loadCardioLog(cfgs)
+      setCardioDone(Object.fromEntries(cfgs.map(c => [c.id, { done: !!c.today, logId: c.today?.id || null }])))
     } finally { setLoading(false) }
   }
 
-  const loadCardioLog = async (cfgs) => {
-    const today = todayISO()
-    const entries = await Promise.all(cfgs.map(async c => {
-      const last = c.today ? null : await cardioService.getLast(c.id, today)
-      return [c.id, {
-        type: c.today?.type || c.type,
-        duration_min: c.today?.duration_min != null ? String(c.today.duration_min) : (c.duration_min != null ? String(c.duration_min) : ''),
-        intensity: c.today?.intensity ?? c.intensity ?? '',
-        distance_km: c.today?.distance_km != null ? String(c.today.distance_km) : (c.distance_km != null ? String(c.distance_km) : ''),
-        calories: c.today?.calories != null ? String(c.today.calories) : (c.calories != null ? String(c.calories) : ''),
-        notes: c.today?.notes ?? c.notes ?? '',
-        skip: false,
-        todayLogId: c.today?.id || null,
-        savedToday: !!c.today,
-        last,
-      }]
-    }))
-    setCardioLog(Object.fromEntries(entries))
-  }
-
-  const updateCardioLog = (configId, field, value) =>
-    setCardioLog(p => ({ ...p, [configId]: { ...p[configId], [field]: value } }))
-
-  const toggleSkipCardioLog = (configId) =>
-    setCardioLog(p => ({ ...p, [configId]: { ...p[configId], skip: !p[configId].skip } }))
-
-  const saveCardioLog = async (configId) => {
-    const it = cardioLog[configId]
-    if (!it) return
+  const toggleCardioDone = async (configId) => {
+    const cur = cardioDone[configId] || { done:false, logId:null }
+    const cfg = cardioConfigs.find(c => c.id === configId)
     setCardioLogSaving(p => ({ ...p, [configId]: true }))
     try {
-      if (it.skip) {
-        if (it.todayLogId) await cardioService.delete(it.todayLogId)
-        setCardioLog(p => ({ ...p, [configId]: { ...p[configId], todayLogId:null, savedToday:false } }))
-        toast('Cardio marcado como não realizado hoje.')
+      if (cur.done) {
+        if (cur.logId) await cardioService.delete(cur.logId)
+        setCardioDone(p => ({ ...p, [configId]: { done:false, logId:null } }))
       } else {
-        if (!it.duration_min && !it.intensity) { toast('Informe ao menos tempo ou intensidade.'); return }
-        const saved = await cardioService.upsert(userId, configId, todayISO(), it)
-        setCardioLog(p => ({ ...p, [configId]: { ...p[configId], todayLogId: saved.id, savedToday:true } }))
-        toast('🏃 Cardio de hoje registrado!')
+        const saved = await cardioService.upsert(userId, configId, todayISO(), {
+          type: cfg?.type, duration_min: cfg?.duration_min, intensity: cfg?.intensity,
+          distance_km: cfg?.distance_km, calories: cfg?.calories, notes: cfg?.notes,
+        })
+        setCardioDone(p => ({ ...p, [configId]: { done:true, logId: saved.id } }))
+        toast('🏃 Cardio marcado como feito hoje!')
       }
     } catch(e) { toast('Erro: '+e.message) }
     finally { setCardioLogSaving(p => ({ ...p, [configId]: false })) }
@@ -564,7 +492,7 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
         <div style={{ padding:'0 16px 14px' }}>
           <p className="label" style={{ marginBottom:8 }}>🏃 Cardio · antes do treino</p>
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {cardioBefore.map(c => <CardioConfigCard key={c.id} c={c} onEdit={openEditCardio} onDelete={setDelCardio} log={cardioLog[c.id]} saving={cardioLogSaving[c.id]} onUpdateLog={updateCardioLog} onToggleSkip={toggleSkipCardioLog} onSaveLog={saveCardioLog} />)}
+            {cardioBefore.map(c => <CardioConfigCard key={c.id} c={c} onEdit={openEditCardio} onDelete={setDelCardio} doneToday={!!cardioDone[c.id]?.done} saving={cardioLogSaving[c.id]} onToggleDone={toggleCardioDone} />)}
           </div>
         </div>
       )}
@@ -655,7 +583,7 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
         </div>
         {cardioAfter.length > 0 ? (
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {cardioAfter.map(c => <CardioConfigCard key={c.id} c={c} onEdit={openEditCardio} onDelete={setDelCardio} log={cardioLog[c.id]} saving={cardioLogSaving[c.id]} onUpdateLog={updateCardioLog} onToggleSkip={toggleSkipCardioLog} onSaveLog={saveCardioLog} />)}
+            {cardioAfter.map(c => <CardioConfigCard key={c.id} c={c} onEdit={openEditCardio} onDelete={setDelCardio} doneToday={!!cardioDone[c.id]?.done} saving={cardioLogSaving[c.id]} onToggleDone={toggleCardioDone} />)}
           </div>
         ) : (
           <p style={{ fontSize:12.5, color:'var(--t3)' }}>Nenhum cardio configurado para este treino. Se não fizer cardio, pode deixar assim.</p>
