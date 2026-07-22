@@ -11,7 +11,7 @@ import { Modal, FormSheet, Confirm, Loader, Empty, SheetPicker } from '../compon
 
 const emptyCardioConfigForm = () => ({ type:'Esteira', customType:'', duration_min:'', intensity:'', distance_km:'', calories:'', notes:'', position:'depois' })
 
-function CardioConfigCard({ c, onEdit, onDelete, doneToday, saving, onToggleDone }) {
+function CardioConfigCard({ c, onEdit, onDelete }) {
   return (
     <div style={{ background:'var(--card)', border:'1px solid var(--b1)', borderRadius:'var(--r)', padding:'10px 12px', display:'flex', alignItems:'center', gap:10 }}>
       <span style={{ fontSize:18, flexShrink:0 }}>{cardioIcon(c.type)}</span>
@@ -26,17 +26,6 @@ function CardioConfigCard({ c, onEdit, onDelete, doneToday, saving, onToggleDone
           ].filter(Boolean).join(' · ') || 'sem detalhes definidos'}
         </div>
       </div>
-      <button onClick={() => onToggleDone(c.id)} disabled={saving} className="tap-target-44"
-        title={doneToday ? 'Feito hoje — toque para desmarcar' : 'Marcar como feito hoje'}
-        style={{
-          width:26, height:26, borderRadius:'50%', flexShrink:0, cursor:'pointer',
-          border:`2px solid ${doneToday ? 'var(--accent)' : 'var(--b2)'}`,
-          background: doneToday ? 'var(--accent)' : 'transparent',
-          color:'#fff', fontSize:14, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center',
-          transition:'background-color 0.15s, border-color 0.15s',
-        }}>
-        {doneToday ? '✓' : ''}
-      </button>
       <button onClick={() => onEdit(c)} className="tap-target-44" style={{ color:'var(--t2)', fontSize:14, background:'none', border:'none', cursor:'pointer', padding:'4px', flexShrink:0 }}>✏️</button>
       <button onClick={() => onDelete(c)} className="tap-target-44" style={{ color:'var(--red)', fontSize:14, background:'none', border:'none', cursor:'pointer', padding:'4px', flexShrink:0 }}>🗑️</button>
     </div>
@@ -360,12 +349,6 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
   const [cardioForm,      setCardioForm]      = useState(emptyCardioConfigForm())
   const [cardioSaving,    setCardioSaving]    = useState(false)
 
-  // Registro de cardio de HOJE — vive aqui na tela do treino, não dentro do
-  // registro de um exercício específico, já que o cardio não pertence a
-  // nenhum exercício em particular. Simples: feito ou não feito, usando os
-  // valores da referência (que o usuário mantém atualizados via editar).
-  const [cardioDone,       setCardioDone]       = useState({}) // { [configId]: { done, logId } }
-  const [cardioLogSaving,  setCardioLogSaving]  = useState({}) // { [configId]: bool }
 
   useEffect(() => { load() }, [workout?.id])
   useRefreshOnForeground(() => { if (workout?.id) load() })
@@ -382,28 +365,7 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
       setLastSets(last)
       setPrs(prMap)
       setCardioConfigs(cfgs)
-      setCardioDone(Object.fromEntries(cfgs.map(c => [c.id, { done: !!c.today, logId: c.today?.id || null }])))
     } finally { setLoading(false) }
-  }
-
-  const toggleCardioDone = async (configId) => {
-    const cur = cardioDone[configId] || { done:false, logId:null }
-    const cfg = cardioConfigs.find(c => c.id === configId)
-    setCardioLogSaving(p => ({ ...p, [configId]: true }))
-    try {
-      if (cur.done) {
-        if (cur.logId) await cardioService.delete(cur.logId)
-        setCardioDone(p => ({ ...p, [configId]: { done:false, logId:null } }))
-      } else {
-        const saved = await cardioService.upsert(userId, configId, todayISO(), {
-          type: cfg?.type, duration_min: cfg?.duration_min, intensity: cfg?.intensity,
-          distance_km: cfg?.distance_km, calories: cfg?.calories, notes: cfg?.notes,
-        })
-        setCardioDone(p => ({ ...p, [configId]: { done:true, logId: saved.id } }))
-        toast('🏃 Cardio marcado como feito hoje!')
-      }
-    } catch(e) { toast('Erro: '+e.message) }
-    finally { setCardioLogSaving(p => ({ ...p, [configId]: false })) }
   }
 
   const openNewCardio  = () => { setEditingCardio(null); setCardioForm(emptyCardioConfigForm()); setCardioModal(true) }
@@ -492,7 +454,7 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
         <div style={{ padding:'0 16px 14px' }}>
           <p className="label" style={{ marginBottom:8 }}>🏃 Cardio · antes do treino</p>
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {cardioBefore.map(c => <CardioConfigCard key={c.id} c={c} onEdit={openEditCardio} onDelete={setDelCardio} doneToday={!!cardioDone[c.id]?.done} saving={cardioLogSaving[c.id]} onToggleDone={toggleCardioDone} />)}
+            {cardioBefore.map(c => <CardioConfigCard key={c.id} c={c} onEdit={openEditCardio} onDelete={setDelCardio} />)}
           </div>
         </div>
       )}
@@ -583,7 +545,7 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
         </div>
         {cardioAfter.length > 0 ? (
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {cardioAfter.map(c => <CardioConfigCard key={c.id} c={c} onEdit={openEditCardio} onDelete={setDelCardio} doneToday={!!cardioDone[c.id]?.done} saving={cardioLogSaving[c.id]} onToggleDone={toggleCardioDone} />)}
+            {cardioAfter.map(c => <CardioConfigCard key={c.id} c={c} onEdit={openEditCardio} onDelete={setDelCardio} />)}
           </div>
         ) : (
           <p style={{ fontSize:12.5, color:'var(--t3)' }}>Nenhum cardio configurado para este treino. Se não fizer cardio, pode deixar assim.</p>
