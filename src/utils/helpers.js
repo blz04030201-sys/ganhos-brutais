@@ -9,12 +9,41 @@ export function matchesToday(dayLabel) {
   return dayLabel.toLowerCase().startsWith(today)
 }
 
-/** Pick the workout scheduled for today out of a list, falling back to the first one */
-export function pickTodaysWorkout(workouts = []) {
-  if (!workouts.length) return null
-  return workouts.find(w => matchesToday(w.day_label)) || workouts[0]
-}
 export const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e||'').trim())
+
+/** "Concluir Treino" — só um estado visual do dia, guardado no localStorage
+ *  (nunca no Supabase, nunca vira histórico). Cada chave já embute a data de
+ *  hoje, então no dia seguinte ela simplesmente não bate mais e o card volta
+ *  ao normal sozinho, sem precisar de nenhuma limpeza especial. */
+const FINISHED_PREFIX = 'gb_workout_finished:'
+
+export function isWorkoutFinished(userId, date, workoutId) {
+  if (!userId || !workoutId) return false
+  try { return localStorage.getItem(`${FINISHED_PREFIX}${userId}:${date}:${workoutId}`) === '1' }
+  catch { return false }
+}
+
+export function setWorkoutFinished(userId, date, workoutId, finished) {
+  if (!userId || !workoutId) return
+  try {
+    const key = `${FINISHED_PREFIX}${userId}:${date}:${workoutId}`
+    if (finished) localStorage.setItem(key, '1')
+    else localStorage.removeItem(key)
+  } catch {}
+}
+
+/** Limpa marcações de dias anteriores, pra não acumular chaves no
+ *  localStorage pra sempre — chamar uma vez ao carregar o Dashboard. */
+export function cleanupOldFinishedFlags(todayISOStr) {
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith(FINISHED_PREFIX) && !key.includes(`:${todayISOStr}:`)) {
+        localStorage.removeItem(key)
+      }
+    }
+  } catch {}
+}
 
 export const dateLabel = iso => {
   if (!iso) return ''

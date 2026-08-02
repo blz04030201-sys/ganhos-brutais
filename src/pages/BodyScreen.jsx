@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useApp } from '../hooks/useAppContext'
 import { measurementService } from '../services/diet'
 import { todayISO, dateLabel } from '../utils/helpers'
-import { Modal, FormSheet, Confirm, Loader, Empty, SectionHeader } from '../components/UI'
+import { FormSheet, Confirm, Loader, Empty, SectionHeader } from '../components/UI'
 
 export default function BodyScreen() {
   const { userId, toast } = useApp()

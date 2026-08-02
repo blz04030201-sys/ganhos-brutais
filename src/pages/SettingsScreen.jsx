@@ -6,7 +6,7 @@ import { WORKOUT_COLORS } from '../utils/helpers'
 import { Confirm } from '../components/UI'
 
 export default function SettingsScreen() {
-  const { user, profile, refreshProfile, toast, accentColor } = useApp()
+  const { user, profile, refreshProfile, toast } = useApp()
   const [form,      setForm]      = useState({
     name:   profile?.name   || '',
     gender: profile?.gender || '',

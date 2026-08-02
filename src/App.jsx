@@ -6,7 +6,7 @@ import WorkoutsScreen  from './pages/WorkoutsScreen'
 import DietScreen      from './pages/DietScreen'
 import SettingsScreen  from './pages/SettingsScreen'
 import BottomNav       from './components/BottomNav'
-import { Toast, Loader } from './components/UI'
+import { Toast } from './components/UI'
 import './styles/global.css'
 
 /* ── Visual Viewport / keyboard handler ────────────────────── */

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useApp } from '../hooks/useAppContext'
 import { gymService, workoutService, exerciseService, logService } from '../services/workouts'
@@ -7,7 +7,7 @@ import { WORKOUT_COLORS, GYM_ICONS, GYM_COLORS, dateLabel, calcVolume, estimate1
 import { consumeWorkoutIntent } from '../utils/navIntent'
 import { useDragSort } from '../hooks/useDragSort'
 import { useRefreshOnForeground } from '../hooks/useRefreshOnForeground'
-import { Modal, FormSheet, Confirm, Loader, Empty, SheetPicker } from '../components/UI'
+import { FormSheet, Confirm, Loader, Empty, SheetPicker } from '../components/UI'
 
 const emptyCardioConfigForm = () => ({ type:'Esteira', customType:'', duration_min:'', intensity:'', distance_km:'', calories:'', notes:'', position:'depois' })
 
@@ -79,7 +79,8 @@ function GymList({ onSelect }) {
       const map = {}
       await Promise.all(gs.map(async g => { map[g.id] = await workoutService.listByGym(g.id) }))
       setGymWorkouts(map)
-    } finally { setLoading(false) }
+    } catch(e) { toast('Erro ao carregar academias: '+e.message) }
+    finally { setLoading(false) }
   }
 
   const { dragIndex, getHandleProps, getItemProps } = useDragSort(gyms, async (next) => {
@@ -220,7 +221,8 @@ function WorkoutList({ gym, onBack, onSelect }) {
         counts[w.id] = exs.length
       }))
       setExCounts(counts)
-    } finally { setLoading(false) }
+    } catch(e) { toast('Erro ao carregar treinos: '+e.message) }
+    finally { setLoading(false) }
   }
 
   const { dragIndex, getHandleProps, getItemProps } = useDragSort(workouts, async (next) => {
@@ -357,15 +359,17 @@ function ExList({ workout, gym, onBack, onLog, onHistory }) {
       const data = await exerciseService.listByWorkout(workout.id)
       setExercises(data)
       const ids = data.map(e => e.id)
-      const [last, prMap, cfgs] = await Promise.all([
+      const [last, prMap] = await Promise.all([
         logService.listLatestByExerciseIds(ids),
         logService.listPRsByExerciseIds(ids),
-        cardioService.listByWorkoutDate(workout.id, todayISO()),
       ])
       setLastSets(last)
       setPrs(prMap)
-      setCardioConfigs(cfgs)
-    } finally { setLoading(false) }
+      // Cardio é opcional — não deve travar exercícios/séries/PRs se falhar
+      try { setCardioConfigs(await cardioService.listByWorkoutDate(workout.id, todayISO())) }
+      catch (e) { console.error('Cardio load error', e); setCardioConfigs([]) }
+    } catch(e) { toast('Erro ao carregar exercícios: '+e.message) }
+    finally { setLoading(false) }
   }
 
   const openNewCardio  = () => { setEditingCardio(null); setCardioForm(emptyCardioConfigForm()); setCardioModal(true) }
@@ -664,7 +668,8 @@ function LogSession({ ex, gym, workout, onBack, onDone }) {
       } else {
         setSets(Array.from({ length: ex.valid_sets||3 }, () => ({ weight:'', reps:'' })))
       }
-    } finally { setLoading(false) }
+    } catch(e) { toast('Erro ao carregar histórico: '+e.message) }
+    finally { setLoading(false) }
   }
 
   // Melhor série de todos os tempos, considerando peso E repetições juntos —
@@ -760,7 +765,7 @@ function LogSession({ ex, gym, workout, onBack, onDone }) {
           value={obs} onChange={e => setObs(e.target.value)} style={{ resize:'none' }} />
       </div>
 
-      <div style={{ padding:'10px 16px 16px' }}>
+      <div className="sticky-action-bar">
         <button className="btn btn-primary btn-full" onClick={save} disabled={saving} style={{ fontSize:16, padding:15 }}>
           {saving ? '⏳ Salvando...' : '✅ Salvar Treino'}
         </button>

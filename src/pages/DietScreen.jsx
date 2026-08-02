@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useApp } from '../hooks/useAppContext'
 import { mealPlanService, mealService, mealItemService, dietGoalsService, foodService, presetService, hydrationService } from '../services/diet'
 import { profileService } from '../services/profile'
 import { searchFoods, calcMacros, findFood, getFoodUnits, recalcItems, mealGroupKey, mealPresetSuggestions } from '../utils/foodsDb'
 import { sumMacros, MEAL_ICONS, smartGoals, todayISO } from '../utils/helpers'
-import { Modal, FormSheet, Confirm, Loader, Empty, SectionHeader } from '../components/UI'
+import { Modal, FormSheet, Confirm, Loader, Empty } from '../components/UI'
 import { useDragSort } from '../hooks/useDragSort'
 
 // Greeting header — mesmo padrão usado na tela inicial (Dashboard)

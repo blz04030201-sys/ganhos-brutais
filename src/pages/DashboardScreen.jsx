@@ -4,7 +4,7 @@ import { gymService, workoutService, exerciseService, logService } from '../serv
 import { cardioConfigService, cardioIcon } from '../services/cardio'
 import { profileService } from '../services/profile'
 import { dietGoalsService, mealService, mealPlanService } from '../services/diet'
-import { todayISO, dateLabel, sumMacros, matchesToday } from '../utils/helpers'
+import { todayISO, dateLabel, sumMacros, matchesToday, isWorkoutFinished, setWorkoutFinished, cleanupOldFinishedFlags } from '../utils/helpers'
 import { setWorkoutIntent } from '../utils/navIntent'
 import { Loader } from '../components/UI'
 
@@ -34,6 +34,7 @@ export default function DashboardScreen({ setTab }) {
   const [dietGoals,    setDietGoals]     = useState({ calories:2800, protein:180, carbs:350, fat:80 })
   const [dietMeals,    setDietMeals]     = useState([])
   const [loading,      setLoading]       = useState(true)
+  const [finished,     setFinished]      = useState(false)
 
   // Log modal state
   const [logEx,      setLogEx]      = useState(null)
@@ -44,6 +45,21 @@ export default function DashboardScreen({ setTab }) {
   const [logSaving,  setLogSaving]  = useState(false)
 
   useEffect(() => { if (userId) init() }, [userId])
+  useEffect(() => { cleanupOldFinishedFlags(todayISO()) }, [])
+  useEffect(() => {
+    setFinished(selectedWk ? isWorkoutFinished(userId, todayISO(), selectedWk.id) : false)
+  }, [userId, selectedWk])
+
+  const finishWorkout = () => {
+    if (!selectedWk) return
+    setWorkoutFinished(userId, todayISO(), selectedWk.id, true)
+    setFinished(true)
+  }
+  const reopenWorkout = () => {
+    if (!selectedWk) return
+    setWorkoutFinished(userId, todayISO(), selectedWk.id, false)
+    setFinished(false)
+  }
 
   const init = async () => {
     setLoading(true)
@@ -78,26 +94,36 @@ export default function DashboardScreen({ setTab }) {
           await loadExercises(wk)
         }
       }
+    } catch (e) {
+      console.error('Dashboard init error', e)
+      toast('Erro ao carregar o dashboard: ' + e.message)
     } finally {
       setLoading(false)
     }
   }
 
   const loadExercises = async (wk) => {
-    const [exs, logs, cfgs] = await Promise.all([
+    const [exs, logs] = await Promise.all([
       exerciseService.listByWorkout(wk.id),
       logService.listByDate(userId, todayISO()),
-      cardioConfigService.listByWorkout(wk.id),
     ])
     setExercises(exs)
     setTodayLogs(logs)
-    setCardioConfigs(cfgs)
 
-    // Build recent PRs across all exercises
+    // Cardio é opcional — se essa consulta falhar (ou a tabela ainda não
+    // existir), isso não deve travar exercícios/séries do resto do card.
+    try { setCardioConfigs(await cardioConfigService.listByWorkout(wk.id)) }
+    catch (e) { console.error('Cardio configs load error', e); setCardioConfigs([]) }
+
+    // Build recent PRs across all exercises — em paralelo (era sequencial,
+    // uma consulta de cada vez, o que deixava essa parte bem mais lenta em
+    // conexões de celular mais fracas quanto mais exercícios o treino tinha).
+    const sample = exs.slice(0, 6)
+    const histories = await Promise.all(sample.map(ex => logService.listByExercise(ex.id)))
     const prs = []
-    for (const ex of exs.slice(0, 6)) {
-      const hist = await logService.listByExercise(ex.id)
-      if (hist.length < 2) continue
+    sample.forEach((ex, i) => {
+      const hist = histories[i]
+      if (hist.length < 2) return
       const newest = hist[0]
       const prevMax = hist.slice(1).reduce((m, l) =>
         Math.max(m, ...(l.sets||[]).map(s => parseFloat(s.weight)||0)), 0)
@@ -105,7 +131,7 @@ export default function DashboardScreen({ setTab }) {
       if (newMax > prevMax && prevMax > 0) {
         prs.push({ name: ex.name, prev: prevMax, cur: newMax, diff: +(newMax-prevMax).toFixed(1) })
       }
-    }
+    })
     setRecentPRs(prs.slice(0, 3))
   }
 
@@ -115,17 +141,22 @@ export default function DashboardScreen({ setTab }) {
     setExercises([])
     setTodayLogs([])
     setCardioConfigs([])
-    const ws = await workoutService.listByGym(gym.id)
-    setWorkouts(ws)
-    const wk = ws.find(w => matchesToday(w.day_label))
-    setRestDay(ws.length > 0 && !wk)
-    if (wk) { setSelectedWk(wk); await loadExercises(wk) }
-    try { await profileService.upsert(userId, { last_gym_id: gym.id }) } catch(_) {}
+    try {
+      const ws = await workoutService.listByGym(gym.id)
+      setWorkouts(ws)
+      const wk = ws.find(w => matchesToday(w.day_label))
+      setRestDay(ws.length > 0 && !wk)
+      if (wk) { setSelectedWk(wk); await loadExercises(wk) }
+      try { await profileService.upsert(userId, { last_gym_id: gym.id }) } catch(_) {}
+    } catch (e) {
+      toast('Erro ao trocar de academia: ' + e.message)
+    }
   }
 
   const selectWorkout = async (wk) => {
     setSelectedWk(wk)
-    await loadExercises(wk)
+    try { await loadExercises(wk) }
+    catch (e) { toast('Erro ao carregar treino: ' + e.message) }
   }
 
   // Open log modal
@@ -216,6 +247,9 @@ export default function DashboardScreen({ setTab }) {
           accentColor={accentColor}
           cardioConfigs={cardioConfigs}
           restDay={restDay}
+          finished={finished}
+          onFinish={finishWorkout}
+          onReopen={reopenWorkout}
         />
       </div>
 
@@ -273,7 +307,7 @@ export default function DashboardScreen({ setTab }) {
 }
 
 // ── WORKOUT CARD ──────────────────────────────────────────────
-function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGym, workouts, onSelectWorkout, onStart, setTab, accentColor = '#3B82F6', cardioConfigs = [], restDay = false }) {
+function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGym, workouts, onSelectWorkout, onStart, setTab, accentColor = '#3B82F6', cardioConfigs = [], restDay = false, finished = false, onFinish, onReopen }) {
   const muscleGroups = wk?.display_name?.split(/[+·,]/).map(s => s.trim()).filter(Boolean) || []
   const [switching, setSwitching] = useState(false)
 
@@ -374,34 +408,76 @@ function WorkoutCard({ gym, wk, exercises, doneCount, progress, gyms, onSelectGy
               </div>
             )}
 
-            {/* Progress */}
-            {exercises.length > 0 && (
-              <div style={{ marginBottom:12 }}>
-                <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:'rgba(255,255,255,0.5)', marginBottom:5 }}>
-                  <span>{doneCount}/{exercises.length} exercícios</span>
-                  <span>{progress}%</span>
+            {finished ? (
+              /* Treino finalizado — só um estado visual do dia (não é salvo
+                 em lugar nenhum); os exercícios continuam 100% editáveis. */
+              <div style={{
+                padding:'12px 14px', borderRadius:'var(--r)', marginBottom:10,
+                background:'rgba(16,185,129,0.12)', border:'1px solid rgba(16,185,129,0.3)',
+              }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+                  <span style={{ fontSize:18 }}>🎉</span>
+                  <span style={{ fontSize:14, fontWeight:800, color:'#6EE7B7' }}>Treino Finalizado</span>
                 </div>
-                <div style={{ height:4, background:'rgba(255,255,255,0.1)', borderRadius:99, overflow:'hidden' }}>
-                  <div style={{ height:'100%', width:`${progress}%`, background:`linear-gradient(90deg, ${accentColor}, color-mix(in srgb, ${accentColor} 70%, white))`, borderRadius:99, transition:'width 0.4s' }} />
+                <p style={{ fontSize:11.5, color:'rgba(255,255,255,0.55)', lineHeight:1.5, marginBottom:10 }}>
+                  Mandou bem! Você ainda pode ver e editar os exercícios, séries e observações a qualquer momento.
+                </p>
+                <div style={{ display:'flex', gap:8 }}>
+                  <button onClick={onStart}
+                    style={{ flex:1, padding:'9px', borderRadius:'var(--r)', background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.15)', color:'#fff', fontSize:12.5, fontWeight:700, cursor:'pointer' }}>
+                    Ver treino
+                  </button>
+                  <button onClick={onReopen}
+                    style={{ flex:1, padding:'9px', borderRadius:'var(--r)', background:'none', border:'1px solid rgba(255,255,255,0.15)', color:'rgba(255,255,255,0.6)', fontSize:12.5, fontWeight:700, cursor:'pointer' }}>
+                    ↺ Reabrir treino
+                  </button>
                 </div>
               </div>
-            )}
+            ) : (
+              <>
+                {/* Progress */}
+                {exercises.length > 0 && (
+                  <div style={{ marginBottom:12 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:'rgba(255,255,255,0.5)', marginBottom:5 }}>
+                      <span>{doneCount}/{exercises.length} exercícios</span>
+                      <span>{progress}%</span>
+                    </div>
+                    <div style={{ height:4, background:'rgba(255,255,255,0.1)', borderRadius:99, overflow:'hidden' }}>
+                      <div style={{ height:'100%', width:`${progress}%`, background:`linear-gradient(90deg, ${accentColor}, color-mix(in srgb, ${accentColor} 70%, white))`, borderRadius:99, transition:'width 0.4s' }} />
+                    </div>
+                  </div>
+                )}
 
-            {/* CTA */}
-            <button
-              onClick={onStart}
-              style={{
-                width:'100%', padding:'11px', borderRadius:'var(--r)',
-                background:`linear-gradient(90deg, color-mix(in srgb, ${accentColor} 85%, black), ${accentColor})`,
-                border:'none', color:'#fff', fontSize:13, fontWeight:800,
-                letterSpacing:'0.06em', textTransform:'uppercase',
-                boxShadow:`0 4px 16px color-mix(in srgb, ${accentColor} 40%, transparent)`,
-                cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-                transition:'background 0.25s, box-shadow 0.25s',
-              }}
-            >
-              {doneCount > 0 ? '▶ Continuar Treino' : '▶ Iniciar Treino'} →
-            </button>
+                {/* CTA */}
+                <button
+                  onClick={onStart}
+                  style={{
+                    width:'100%', padding:'11px', borderRadius:'var(--r)',
+                    background:`linear-gradient(90deg, color-mix(in srgb, ${accentColor} 85%, black), ${accentColor})`,
+                    border:'none', color:'#fff', fontSize:13, fontWeight:800,
+                    letterSpacing:'0.06em', textTransform:'uppercase',
+                    boxShadow:`0 4px 16px color-mix(in srgb, ${accentColor} 40%, transparent)`,
+                    cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                    transition:'background 0.25s, box-shadow 0.25s',
+                    marginBottom:8,
+                  }}
+                >
+                  {doneCount > 0 ? '▶ Continuar Treino' : '▶ Iniciar Treino'} →
+                </button>
+
+                {/* Concluir treino — só um estado visual do dia */}
+                <button
+                  onClick={onFinish}
+                  style={{
+                    width:'100%', padding:'9px', borderRadius:'var(--r)',
+                    background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.12)',
+                    color:'rgba(255,255,255,0.65)', fontSize:12, fontWeight:700, cursor:'pointer',
+                  }}
+                >
+                  ✅ Concluir Treino
+                </button>
+              </>
+            )}
           </>
         ) : gym && restDay ? (
           /* Rest day: no workout scheduled for today at this gym */
@@ -835,6 +911,12 @@ function LogModal({ ex, sets, obs, date, history, saving, onClose, onSave, onSet
     Math.max(m, ...(l.sets||[]).map(s => parseFloat(s.weight)||0)), 0)
   const last = history[0]
 
+  useEffect(() => {
+    const handler = e => { if (e.key === 'Escape') onClose?.() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
   return (
     <div className="modal-overlay" onPointerDown={e => { if (e.target===e.currentTarget) onClose() }}>
       <div className="modal-sheet">
@@ -850,8 +932,13 @@ function LogModal({ ex, sets, obs, date, history, saving, onClose, onSave, onSet
             style={{ background:'var(--bg3)', border:'1px solid var(--b1)', borderRadius:'var(--rsm)', color:'var(--t1)', padding:'6px 8px', fontSize:16 }} />
         </div>
 
-        {/* Scrollable body */}
-        <div className="modal-sheet-inner" style={{ flex:1, minHeight:0 }}>
+        {/* Scrollable body — o campo focado é rolado acima do teclado assim
+            que aparece, do mesmo jeito que o FormSheet já faz em todo o
+            resto do app (importante aqui, que tem vários campos de série). */}
+        <div className="modal-sheet-inner" style={{ flex:1, minHeight:0 }} onFocusCapture={e => {
+          const el = e.target
+          setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300)
+        }}>
           {last && last.log_date !== date && (
             <div style={{ padding:'10px 12px', background:'var(--bg3)', borderRadius:'var(--r)', border:'1px solid var(--b1)', marginBottom:12 }}>
               <div className="label" style={{ marginBottom:6 }}>Último treino — {dateLabel(last.log_date)}</div>
