@@ -765,7 +765,7 @@ function LogSession({ ex, gym, workout, onBack, onDone }) {
           value={obs} onChange={e => setObs(e.target.value)} style={{ resize:'none' }} />
       </div>
 
-      <div className="sticky-action-bar">
+      <div style={{ padding:'10px 16px 16px' }}>
         <button className="btn btn-primary btn-full" onClick={save} disabled={saving} style={{ fontSize:16, padding:15 }}>
           {saving ? '⏳ Salvando...' : '✅ Salvar Treino'}
         </button>

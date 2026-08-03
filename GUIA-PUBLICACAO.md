@@ -51,7 +51,7 @@ Botão "✅ Concluir Treino" no card do Dashboard. Ao tocar, o card mostra "🎉
 2. **Nenhum Error Boundary no app** — qualquer erro de renderização não tratado deixava a tela em branco sem explicação. Adicionado `src/components/ErrorBoundary.jsx`, que mostra a mensagem do erro com botão de recarregar.
 3. **`init()`, `selectGym()`, `selectWorkout()` do Dashboard sem `catch`** — erros de rede/Supabase falhavam silenciosamente. Agora mostram um aviso (toast) sem travar o resto do app.
 4. **Modal de registro rápido de série (Dashboard) sem tratamento de teclado** — diferente dos outros modais do app, esse não rolava o campo focado pra cima do teclado nem fechava com Esc. Corrigido para seguir o mesmo padrão dos demais.
-5. **Botão "Salvar Treino" da tela de Registro de Treino não ficava sempre visível** — existia até um comentário no CSS descrevendo essa correção (`.sticky-action-bar`), mas a regra nunca tinha sido escrita de fato, nem usada em lugar nenhum. Implementada e aplicada — o botão agora fica fixo e visível mesmo com o teclado aberto.
+5. **[REVERTIDO] Botão "Salvar Treino"** — eu tinha tentado deixá-lo fixo (sticky) na tela de Registro de Treino, mas isso causou uma regressão real: no seu celular, o navegador já reposiciona a tela sozinho quando o teclado abre, e a minha mudança compensava isso *de novo* por cima, jogando o botão pra cima da área onde você estava digitando. **Revertido para exatamente como estava antes** — botão fixo no fluxo normal da tela, sem a tentativa de sticky.
 6. **Função morta** `pickTodaysWorkout` em `utils/helpers.js` — nunca era chamada (a lógica de dia de descanso já estava implementada direto no Dashboard). Removida.
 7. **7 imports/variáveis não usados** — `Loader` (App.jsx), `useState` (UI.jsx), `useRef`+`Modal` (Treino), `useRef`+`SectionHeader` (Dieta), `Modal` (Corpo), `accentColor` (Configurações). Todos confirmados sem nenhum uso antes de remover.
 
@@ -61,8 +61,8 @@ Botão "✅ Concluir Treino" no card do Dashboard. Ao tocar, o card mostra "🎉
 
 ## Melhorias de usabilidade (teclado/formulários)
 - Modal de registro rápido de série: campo focado agora sobe automaticamente acima do teclado, e fecha com Esc — igual ao resto do app.
-- Tela de Registro de Treino: botão "Salvar Treino" agora fica sempre visível e alcançável, mesmo com o teclado aberto e várias séries na lista.
 - Confirmado que as demais telas com formulário (Dieta, Cadastro de Alimentos, Cadastro de Refeições, Configurações) já tratavam isso corretamente (botão de salvar fixo no topo da tela, ou dentro dos modais padrão que já rolam o campo acima do teclado).
+- A tentativa de melhoria no botão "Salvar Treino" foi revertida (ver item 5 dos bugs) — nesse ponto o app fica exatamente como estava antes desta atualização.
 
 ---
 
